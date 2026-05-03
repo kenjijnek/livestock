@@ -309,6 +309,32 @@ textarea.fctl { height: 80px; resize: none; }
   background: var(--primary); color: var(--white);
   border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer;
 }
+/* ── Edit/Delete buttons ── */
+.edit-btn {
+  padding: 4px 12px; font-size: 12px; font-weight: 600;
+  background: var(--gray-l); color: var(--text-s);
+  border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+}
+.add-item-btn {
+  display: block; width: calc(100% - 16px);
+  margin: 8px; padding: 11px;
+  background: var(--white); color: var(--primary);
+  border: 1.5px dashed var(--primary); border-radius: 10px;
+  font-size: 14px; font-weight: 600; cursor: pointer; text-align: center;
+}
+.del-modal-btn {
+  width: 100%; margin-top: 8px; padding: 12px;
+  background: var(--danger-l); color: var(--danger);
+  border: 1px solid var(--danger); border-radius: 10px;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.add-farmer-btn {
+  display: block; margin: 4px 8px 12px;
+  padding: 12px; text-align: center;
+  background: var(--white); color: var(--primary);
+  border: 1.5px dashed var(--primary); border-radius: 10px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+}
 </style>
 </head>
 <body>
@@ -408,6 +434,17 @@ textarea.fctl { height: 80px; resize: none; }
       </div>
       <button class="modal-ok" onclick="saveVisit()">保存する</button>
     </div>
+  </div>
+</div>
+
+<!-- Farmer / Inventory Edit Modal -->
+<div class="overlay" id="edit-overlay" onclick="editOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title" id="edit-modal-title">編集</span>
+      <button class="modal-x" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="modal-body" id="edit-modal-body"></div>
   </div>
 </div>
 
@@ -774,7 +811,7 @@ function renderFarmers() {
         <span class="chevron">›</span>
       </div>
     </div>`;
-  }).join('');
+  }).join('') + `<button class="add-farmer-btn" onclick="openFarmerEditModal('')">＋ 農家を追加</button>`;
 }
 function setFF(d) { fFilter = d; renderFarmers(); }
 
@@ -787,7 +824,10 @@ function renderDetail() {
 
   document.getElementById('det-hdr-area').innerHTML = `
     <div class="det-hdr">
-      <div class="det-name">${esc(curFarmer)}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="det-name">${esc(curFarmer)}</div>
+        <button class="edit-btn" onclick="openFarmerEditModal('${esc(curFarmer)}')">編集</button>
+      </div>
       <div class="det-meta">
         <span class="bdg bdg-gray">${f.district}</span>
         <span class="bdg bdg-gray">${f.type}</span>
@@ -820,7 +860,10 @@ function renderInvTab() {
     return `<div class="inv-item${al?' alert':''}">
       <div class="inv-top">
         <span class="inv-name">${esc(item.product)}</span>
-        <span class="bdg ${al?'bdg-r':'bdg-g'}">${al?'要補充':'適正'}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="bdg ${al?'bdg-r':'bdg-g'}">${al?'要補充':'適正'}</span>
+          <button class="edit-btn" onclick="openInvEditModal('${esc(item.farmer)}','${esc(item.product)}')">編集</button>
+        </div>
       </div>
       <div class="inv-ctrl">
         <button class="stkbtn" onclick="adj('${key}',-1)">−</button>
@@ -834,7 +877,8 @@ function renderInvTab() {
       </div>
       <div class="inv-date">最終確認: ${item.lastCheck} ／ 次回: ${item.nextCheck}</div>
     </div>`;
-  }).join('') + '</div>';
+  }).join('') + '</div>' +
+  `<button class="add-item-btn" onclick="openInvEditModal('${esc(curFarmer)}','')">＋ 商品を追加</button>`;
 }
 
 function renderVisTab() {
@@ -1004,6 +1048,119 @@ function saveVisit() {
   if (curPage === 'visits') renderVisits();
   if (curPage === 'detail' && curFarmer === fn) renderDetail();
 }
+
+// ═══════════════════════════════════════
+//  FARMER EDIT
+// ═══════════════════════════════════════
+function openFarmerEditModal(farmerName) {
+  const f = db.farmers.find(x => x.name === farmerName) || {name:'',district:'',type:'酪農',cattle:0,rel:'普通'};
+  const isNew = !farmerName;
+  document.getElementById('edit-modal-title').textContent = isNew ? '農家を追加' : '農家情報を編集';
+  document.getElementById('edit-modal-body').innerHTML = `
+    <div class="fg"><label class="flabel">農家名</label>
+      <input type="text" class="fctl" id="ef-name" value="${esc(f.name)}" placeholder="農家名"></div>
+    <div class="fg"><label class="flabel">地区</label>
+      <input type="text" class="fctl" id="ef-district" value="${esc(f.district)}" placeholder="地区名"></div>
+    <div class="fg"><label class="flabel">頭数</label>
+      <input type="number" class="fctl" id="ef-cattle" value="${f.cattle}" min="0"></div>
+    <div class="fg"><label class="flabel">関係フラグ</label>
+      <select class="fctl" id="ef-rel">
+        <option${f.rel==='重要'?' selected':''}>重要</option>
+        <option${f.rel==='普通'?' selected':''}>普通</option>
+      </select></div>
+    <button class="modal-ok" onclick="saveFarmerEdit('${esc(farmerName)}')">保存する</button>
+    ${farmerName?`<button class="del-modal-btn" onclick="deleteFarmer('${esc(farmerName)}')">削除する</button>`:''}`;
+  document.getElementById('edit-overlay').classList.add('on');
+}
+
+function saveFarmerEdit(oldName) {
+  const name = document.getElementById('ef-name').value.trim();
+  const district = document.getElementById('ef-district').value.trim();
+  const cattle = parseInt(document.getElementById('ef-cattle').value) || 0;
+  const rel = document.getElementById('ef-rel').value;
+  if (!name) { alert('農家名を入力してください'); return; }
+  if (!district) { alert('地区を入力してください'); return; }
+
+  if (oldName) {
+    const f = db.farmers.find(x => x.name === oldName);
+    if (!f) return;
+    if (name !== oldName) {
+      db.inventory.forEach(i => { if (i.farmer === oldName) i.farmer = name; });
+      db.visits.forEach(v => { if (v.farmer === oldName) v.farmer = name; });
+    }
+    db.inventory.forEach(i => { if (i.farmer === name) i.district = district; });
+    db.visits.forEach(v => { if (v.farmer === name) v.district = district; });
+    f.name = name; f.district = district; f.cattle = cattle; f.rel = rel;
+    curFarmer = name;
+    document.getElementById('hdr-title').textContent = name;
+  } else {
+    db.farmers.push({name, district, type:'酪農', cattle, rel, memo:''});
+  }
+  saveDB();
+  closeEditModal();
+  toast(oldName ? '農家情報を更新しました' : '農家を追加しました');
+  if (oldName) renderDetail(); else { goPage('farmers'); }
+}
+
+function deleteFarmer(name) {
+  if (!confirm('「' + name + '」を削除しますか？\n在庫・訪問記録も削除されます。')) return;
+  db.farmers = db.farmers.filter(f => f.name !== name);
+  db.inventory = db.inventory.filter(i => i.farmer !== name);
+  db.visits = db.visits.filter(v => v.farmer !== name);
+  saveDB();
+  closeEditModal();
+  goPage('farmers');
+  toast('削除しました');
+}
+
+// ═══════════════════════════════════════
+//  INVENTORY EDIT
+// ═══════════════════════════════════════
+function openInvEditModal(farmerName, product) {
+  const item = product ? db.inventory.find(i => i.farmer === farmerName && i.product === product) : null;
+  document.getElementById('edit-modal-title').textContent = item ? '商品を編集' : '商品を追加';
+  document.getElementById('edit-modal-body').innerHTML = `
+    <div class="fg"><label class="flabel">商品名</label>
+      <input type="text" class="fctl" id="ei-product" value="${esc(item?item.product:'')}" placeholder="商品名"></div>
+    <div class="fg"><label class="flabel">単位</label>
+      <input type="text" class="fctl" id="ei-unit" value="${esc(item?item.unit:'')}" placeholder="kg / 袋 / 本"></div>
+    <div class="fg"><label class="flabel">現在庫数</label>
+      <input type="number" class="fctl" id="ei-stock" value="${item?item.stock:0}" min="0"></div>
+    <div class="fg"><label class="flabel">補充目安数</label>
+      <input type="number" class="fctl" id="ei-target" value="${item?item.target:0}" min="0"></div>
+    <button class="modal-ok" onclick="saveInvEdit('${esc(farmerName)}','${esc(product)}')">保存する</button>
+    ${item?`<button class="del-modal-btn" onclick="deleteInvItem('${esc(farmerName)}','${esc(product)}')">削除する</button>`:''}`;
+  document.getElementById('edit-overlay').classList.add('on');
+}
+
+function saveInvEdit(farmerName, oldProduct) {
+  const product = document.getElementById('ei-product').value.trim();
+  const unit = document.getElementById('ei-unit').value.trim();
+  const stock = parseInt(document.getElementById('ei-stock').value) || 0;
+  const target = parseInt(document.getElementById('ei-target').value) || 0;
+  if (!product) { alert('商品名を入力してください'); return; }
+  if (!unit) { alert('単位を入力してください'); return; }
+  const f = db.farmers.find(x => x.name === farmerName);
+  if (oldProduct) {
+    const item = db.inventory.find(i => i.farmer === farmerName && i.product === oldProduct);
+    if (item) { item.product = product; item.unit = unit; item.stock = stock; item.target = target; item.lastCheck = todayISO(); }
+  } else {
+    db.inventory.push({farmer:farmerName, district:f?f.district:'', product, unit, stock, target, lastCheck:todayISO(), nextCheck:''});
+  }
+  saveDB(); updateBadge(); closeEditModal();
+  toast(oldProduct ? '商品を更新しました' : '商品を追加しました');
+  renderDetail();
+}
+
+function deleteInvItem(farmerName, product) {
+  if (!confirm('「' + product + '」を削除しますか？')) return;
+  db.inventory = db.inventory.filter(i => !(i.farmer === farmerName && i.product === product));
+  saveDB(); updateBadge(); closeEditModal(); renderDetail();
+  toast('削除しました');
+}
+
+function closeEditModal() { document.getElementById('edit-overlay').classList.remove('on'); }
+function editOverlayClick(e) { if (e.target === document.getElementById('edit-overlay')) closeEditModal(); }
 
 // ═══════════════════════════════════════
 //  EXPORT
