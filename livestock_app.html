@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>畜産在庫管理</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --primary: #1565c0;
+  --primary-d: #0d47a1;
+  --primary-l: #e3f2fd;
+  --danger: #c62828;
+  --danger-l: #ffebee;
+  --success: #2e7d32;
+  --success-l: #e8f5e9;
+  --warning: #e65100;
+  --warning-l: #fff3e0;
+  --gray: #757575;
+  --gray-l: #f5f5f5;
+  --border: #e0e0e0;
+  --text: #212121;
+  --text-s: #616161;
+  --white: #fff;
+  --nav-h: 60px;
+}
+body {
+  font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--gray-l);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Header ── */
+.hdr {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--primary);
+  color: var(--white);
+  padding: 0 14px;
+  display: flex; align-items: center; gap: 10px;
+  min-height: 52px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+.hdr-back {
+  background: none; border: none; color: var(--white);
+  font-size: 28px; cursor: pointer; padding: 4px 2px; line-height: 1;
+  display: none;
+}
+.hdr-title { font-size: 17px; font-weight: 700; flex: 1; }
+.hdr-export {
+  background: rgba(255,255,255,.18); border: none; color: var(--white);
+  font-size: 12px; padding: 5px 10px; border-radius: 6px; cursor: pointer;
+}
+
+/* ── Bottom Nav ── */
+.bnav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: var(--white);
+  border-top: 1px solid var(--border);
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.bnav-btn {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 8px 4px;
+  min-height: var(--nav-h);
+  background: none; border: none; cursor: pointer;
+  color: var(--gray); font-size: 10px; gap: 3px;
+  position: relative;
+}
+.bnav-btn.on { color: var(--primary); }
+.bnav-icon { font-size: 22px; line-height: 1; }
+.bnav-badge {
+  position: absolute; top: 5px; right: calc(50% - 20px);
+  background: var(--danger); color: var(--white);
+  font-size: 10px; font-weight: 700;
+  border-radius: 10px; padding: 1px 5px;
+  min-width: 18px; text-align: center;
+  display: none;
+}
+
+/* ── Main ── */
+.main {
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0) + 8px);
+}
+.page { display: none; }
+.page.on { display: block; }
+
+/* ── Filter tabs ── */
+.ftabs {
+  display: flex; background: var(--white);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; position: sticky; top: 52px; z-index: 50;
+}
+.ftabs::-webkit-scrollbar { display: none; }
+.ftab {
+  padding: 10px 16px; white-space: nowrap;
+  border: none; background: none; cursor: pointer;
+  font-size: 14px; color: var(--text-s);
+  border-bottom: 2px solid transparent;
+  flex-shrink: 0;
+}
+.ftab.on { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+/* ── Cards ── */
+.cards { padding: 8px; }
+.card {
+  background: var(--white); border-radius: 10px;
+  margin-bottom: 8px; overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,.09);
+}
+.card-row {
+  padding: 12px 14px; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+}
+.card-row:active { background: var(--gray-l); }
+.card-main { flex: 1; min-width: 0; }
+.card-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.card-sub { font-size: 13px; color: var(--text-s); margin-top: 2px; }
+.chevron { color: var(--border); font-size: 20px; flex-shrink: 0; }
+
+/* ── Badges ── */
+.bdg {
+  display: inline-flex; align-items: center;
+  font-size: 11px; font-weight: 700;
+  padding: 2px 7px; border-radius: 10px;
+}
+.bdg-r { background: var(--danger-l); color: var(--danger); }
+.bdg-g { background: var(--success-l); color: var(--success); }
+.bdg-b { background: var(--primary-l); color: var(--primary); }
+.bdg-o { background: var(--warning-l); color: var(--warning); }
+.bdg-gray { background: var(--gray-l); color: var(--gray); }
+
+/* ── Detail ── */
+.det-hdr {
+  background: var(--white); padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.det-name { font-size: 20px; font-weight: 700; }
+.det-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.det-tabs {
+  display: flex; background: var(--white);
+  border-bottom: 2px solid var(--border);
+  position: sticky; top: 52px; z-index: 50;
+}
+.det-tab {
+  flex: 1; padding: 12px 8px; text-align: center;
+  border: none; background: none; cursor: pointer;
+  font-size: 14px; font-weight: 500; color: var(--text-s);
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+}
+.det-tab.on { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* ── Inventory items ── */
+.inv-wrap { margin: 8px; border-radius: 10px; overflow: hidden; background: var(--white); box-shadow: 0 1px 4px rgba(0,0,0,.09); }
+.inv-item {
+  padding: 11px 14px; border-bottom: 1px solid var(--border);
+}
+.inv-item:last-child { border-bottom: none; }
+.inv-item.alert { border-left: 3px solid var(--danger); }
+.inv-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.inv-name { font-size: 15px; font-weight: 500; flex: 1; }
+.inv-ctrl { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.stkbtn {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1.5px solid var(--primary); background: var(--white);
+  color: var(--primary); font-size: 22px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.stkbtn:active { background: var(--primary-l); }
+.stkinput {
+  width: 62px; text-align: center;
+  border: 1.5px solid var(--border); border-radius: 7px;
+  padding: 4px 4px; font-size: 18px; font-weight: 700;
+  -moz-appearance: textfield;
+}
+.stkinput::-webkit-outer-spin-button,
+.stkinput::-webkit-inner-spin-button { -webkit-appearance: none; }
+.stkinput:focus { outline: none; border-color: var(--primary); }
+.stkinput.dirty { border-color: var(--warning); background: var(--warning-l); }
+.stk-unit { font-size: 13px; color: var(--text-s); }
+.stk-target { font-size: 12px; color: var(--text-s); margin-left: auto; white-space: nowrap; }
+.inv-date { font-size: 11px; color: var(--text-s); margin-top: 5px; }
+
+/* ── Visit items ── */
+.vis-wrap { margin: 8px; border-radius: 10px; overflow: hidden; background: var(--white); box-shadow: 0 1px 4px rgba(0,0,0,.09); }
+.vis-item { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.vis-item:last-child { border-bottom: none; }
+.vis-meta { font-size: 12px; color: var(--text-s); margin-bottom: 2px; }
+.vis-content { font-size: 15px; font-weight: 500; }
+.vis-farmer { color: var(--primary); }
+.vis-memo { font-size: 13px; color: var(--text-s); margin-top: 3px; }
+.vis-next { font-size: 12px; color: var(--primary); margin-top: 3px; }
+
+/* ── FAB ── */
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0) + 14px);
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--primary); color: var(--white);
+  font-size: 30px; border: none; cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0,0,0,.3);
+  display: none; align-items: center; justify-content: center;
+  z-index: 90;
+}
+.fab.on { display: flex; }
+.fab:active { opacity: .85; }
+
+/* ── Modal ── */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 200; display: none;
+  align-items: flex-end; justify-content: center;
+}
+.overlay.on { display: flex; }
+.modal {
+  background: var(--white);
+  border-radius: 16px 16px 0 0;
+  width: 100%; max-height: 92vh;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.modal-hdr {
+  padding: 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; background: var(--white); z-index: 1;
+}
+.modal-title { font-size: 17px; font-weight: 700; }
+.modal-x {
+  background: var(--gray-l); border: none;
+  width: 28px; height: 28px; border-radius: 50%;
+  cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-body { padding: 16px; }
+.fg { margin-bottom: 16px; }
+.flabel { display: block; font-size: 13px; font-weight: 600; color: var(--text-s); margin-bottom: 6px; }
+.fctl {
+  width: 100%; padding: 10px 12px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: 15px; background: var(--white);
+  -webkit-appearance: none; appearance: none;
+}
+.fctl:focus { outline: none; border-color: var(--primary); }
+textarea.fctl { height: 80px; resize: none; }
+.modal-ok {
+  width: 100%; padding: 14px;
+  background: var(--primary); color: var(--white);
+  border: none; border-radius: 10px;
+  font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 4px;
+}
+.modal-ok:active { opacity: .85; }
+
+/* ── Alert section headers ── */
+.sec-hdr {
+  padding: 8px 12px 4px;
+  font-size: 12px; font-weight: 700; color: var(--text-s);
+  letter-spacing: .4px; background: var(--gray-l);
+}
+
+/* ── Empty state ── */
+.empty { padding: 64px 20px; text-align: center; color: var(--text-s); }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-txt { font-size: 15px; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0) + 14px);
+  left: 50%; transform: translateX(-50%);
+  background: #323232; color: var(--white);
+  padding: 9px 20px; border-radius: 20px;
+  font-size: 14px; z-index: 300;
+  opacity: 0; transition: opacity .25s;
+  pointer-events: none; white-space: nowrap;
+}
+.toast.on { opacity: 1; }
+
+/* ── Add-visit btn in detail ── */
+.add-vis-btn {
+  display: block; width: calc(100% - 16px);
+  margin: 8px; padding: 12px;
+  background: var(--primary); color: var(--white);
+  border: none; border-radius: 10px;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+  text-align: center;
+}
+.add-vis-btn:active { opacity: .85; }
+
+/* ── Memo edit ── */
+.memo-area {
+  width: 100%; padding: 8px 10px;
+  border: 1.5px solid var(--border); border-radius: 7px;
+  font-size: 14px; resize: none; height: 64px;
+  font-family: inherit;
+}
+.memo-area:focus { outline: none; border-color: var(--primary); }
+.memo-save {
+  margin-top: 6px; padding: 7px 16px;
+  background: var(--primary); color: var(--white);
+  border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<div id="hdr" class="hdr">
+  <button class="hdr-back" id="back-btn" onclick="goBack()">‹</button>
+  <span class="hdr-title" id="hdr-title">畜産在庫管理</span>
+  <button class="hdr-export" onclick="exportData()">書出し</button>
+</div>
+
+<div class="main">
+  <!-- 農家一覧 -->
+  <div class="page on" id="pg-farmers">
+    <div class="ftabs" id="farmer-ftabs"></div>
+    <div class="cards" id="farmer-list"></div>
+  </div>
+
+  <!-- 農家詳細 -->
+  <div class="page" id="pg-detail">
+    <div id="det-hdr-area"></div>
+    <div class="det-tabs" id="det-tabs"></div>
+    <div id="det-body"></div>
+  </div>
+
+  <!-- 要補充 -->
+  <div class="page" id="pg-alerts">
+    <div id="alert-body"></div>
+  </div>
+
+  <!-- 訪問記録 -->
+  <div class="page" id="pg-visits">
+    <div class="ftabs" id="visit-ftabs"></div>
+    <div id="visit-list"></div>
+  </div>
+</div>
+
+<!-- Bottom nav -->
+<nav class="bnav">
+  <button class="bnav-btn on" id="nav-farmers" onclick="goPage('farmers')">
+    <span class="bnav-icon">🏠</span><span>農家</span>
+  </button>
+  <button class="bnav-btn" id="nav-alerts" onclick="goPage('alerts')">
+    <span class="bnav-icon">⚠️</span><span>要補充</span>
+    <span class="bnav-badge" id="alert-badge"></span>
+  </button>
+  <button class="bnav-btn" id="nav-visits" onclick="goPage('visits')">
+    <span class="bnav-icon">📋</span><span>訪問記録</span>
+  </button>
+</nav>
+
+<!-- FAB -->
+<button class="fab" id="fab" onclick="openVisitModal()">＋</button>
+
+<!-- Visit Modal -->
+<div class="overlay" id="overlay" onclick="overlayClick(event)">
+  <div class="modal" id="modal">
+    <div class="modal-hdr">
+      <span class="modal-title" id="modal-title">訪問記録を追加</span>
+      <button class="modal-x" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="fg">
+        <label class="flabel">農家名</label>
+        <select class="fctl" id="v-farmer"></select>
+      </div>
+      <div class="fg">
+        <label class="flabel">訪問日</label>
+        <input type="date" class="fctl" id="v-date">
+      </div>
+      <div class="fg">
+        <label class="flabel">在庫確認</label>
+        <select class="fctl" id="v-check">
+          <option>完了</option><option>未完了</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="flabel">商談内容</label>
+        <select class="fctl" id="v-content">
+          <option>定期訪問</option>
+          <option>補充提案あり</option>
+          <option>新商品提案</option>
+          <option>クレーム対応</option>
+          <option>在庫確認のみ</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="flabel">課題・メモ</label>
+        <textarea class="fctl" id="v-memo" placeholder="自由記入…"></textarea>
+      </div>
+      <div class="fg">
+        <label class="flabel">次回訪問予定</label>
+        <input type="date" class="fctl" id="v-next">
+      </div>
+      <div class="fg">
+        <label class="flabel">担当者</label>
+        <input type="text" class="fctl" id="v-person" placeholder="担当者名">
+      </div>
+      <button class="modal-ok" onclick="saveVisit()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+//  INITIAL DATA (from livestock_dummy.xlsx)
+// ═══════════════════════════════════════
+const INIT = {
+farmers: [
+  {name:'あかね牧場',  district:'士幌',    type:'酪農', cattle:280, rel:'重要', memo:''},
+  {name:'緑野農場',    district:'士幌',    type:'酪農', cattle:320, rel:'重要', memo:''},
+  {name:'大地牧場',    district:'士幌',    type:'酪農', cattle:210, rel:'普通', memo:''},
+  {name:'北斗農場',    district:'士幌',    type:'酪農', cattle:180, rel:'重要', memo:''},
+  {name:'清流牧場',    district:'士幌',    type:'酪農', cattle:260, rel:'普通', memo:''},
+  {name:'山麓農場',    district:'士幌',    type:'酪農', cattle:150, rel:'普通', memo:''},
+  {name:'白樺牧場',    district:'士幌',    type:'酪農', cattle:300, rel:'重要', memo:''},
+  {name:'東光農場',    district:'士幌',    type:'酪農', cattle:190, rel:'普通', memo:''},
+  {name:'富士見牧場',  district:'士幌',    type:'酪農', cattle:240, rel:'重要', memo:''},
+  {name:'若葉農場',    district:'士幌',    type:'酪農', cattle:170, rel:'普通', memo:''},
+  {name:'朝日牧場',    district:'士幌',    type:'酪農', cattle:220, rel:'普通', memo:''},
+  {name:'十勝農場',    district:'士幌',    type:'酪農', cattle:350, rel:'重要', memo:''},
+  {name:'音更大牧場',  district:'音更',    type:'酪農', cattle:290, rel:'重要', memo:''},
+  {name:'緑ヶ丘農場',  district:'音更',    type:'酪農', cattle:200, rel:'普通', memo:''},
+  {name:'帯広西農場',  district:'音更',    type:'酪農', cattle:160, rel:'普通', memo:''},
+  {name:'新生牧場',    district:'音更',    type:'酪農', cattle:230, rel:'重要', memo:''},
+  {name:'千代田農場',  district:'音更',    type:'酪農', cattle:180, rel:'普通', memo:''},
+  {name:'高島牧場',    district:'池田高島', type:'酪農', cattle:140, rel:'重要', memo:''},
+  {name:'池田農場',    district:'池田高島', type:'酪農', cattle:120, rel:'普通', memo:''},
+  {name:'利別牧場',    district:'池田高島', type:'酪農', cattle:160, rel:'普通', memo:''},
+],
+inventory: [
+  // あかね牧場
+  {farmer:'あかね牧場',district:'士幌',product:'重曹固形塩F',      unit:'袋',stock:8,  target:5,  lastCheck:'2025/04/09',nextCheck:'2025/05/10'},
+  {farmer:'あかね牧場',district:'士幌',product:'乳頭保護液B-60L',  unit:'本',stock:6,  target:3,  lastCheck:'2025/03/20',nextCheck:'2025/04/17'},
+  {farmer:'あかね牧場',district:'士幌',product:'原料用A',           unit:'kg', stock:118,target:50, lastCheck:'2025/04/14',nextCheck:'2025/05/17'},
+  {farmer:'あかね牧場',district:'士幌',product:'硫黄製品',          unit:'kg', stock:33, target:15, lastCheck:'2025/04/25',nextCheck:'2025/05/29'},
+  {farmer:'あかね牧場',district:'士幌',product:'ビタミン111',       unit:'kg', stock:15, target:10, lastCheck:'2025/04/01',nextCheck:'2025/05/03'},
+  {farmer:'あかね牧場',district:'士幌',product:'消化酵素A',         unit:'kg', stock:24, target:10, lastCheck:'2025/03/04',nextCheck:'2025/03/18'},
+  {farmer:'あかね牧場',district:'士幌',product:'乳頭保護液B-200L', unit:'本',stock:3,  target:2,  lastCheck:'2025/04/11',nextCheck:'2025/04/27'},
+  {farmer:'あかね牧場',district:'士幌',product:'カビ毒吸着L',       unit:'kg', stock:26, target:20, lastCheck:'2025/03/15',nextCheck:'2025/04/12'},
+  // 緑野農場
+  {farmer:'緑野農場',district:'士幌',product:'ビタミン111',         unit:'kg', stock:14, target:10, lastCheck:'2025/04/01',nextCheck:'2025/04/30'},
+  {farmer:'緑野農場',district:'士幌',product:'重曹固形塩A',         unit:'袋',stock:8,  target:5,  lastCheck:'2025/03/09',nextCheck:'2025/03/28'},
+  {farmer:'緑野農場',district:'士幌',product:'消化酵素A',           unit:'kg', stock:22, target:10, lastCheck:'2025/04/24',nextCheck:'2025/05/09'},
+  {farmer:'緑野農場',district:'士幌',product:'固形塩S60',           unit:'袋',stock:5,  target:10, lastCheck:'2025/03/21',nextCheck:'2025/04/20'},
+  {farmer:'緑野農場',district:'士幌',product:'原料用A',             unit:'kg', stock:16, target:50, lastCheck:'2025/03/17',nextCheck:'2025/04/18'},
+  {farmer:'緑野農場',district:'士幌',product:'固形塩E100',          unit:'袋',stock:15, target:8,  lastCheck:'2025/04/21',nextCheck:'2025/05/13'},
+  {farmer:'緑野農場',district:'士幌',product:'搾乳駆虫剤',          unit:'本',stock:2,  target:1,  lastCheck:'2025/04/10',nextCheck:'2025/05/08'},
+  {farmer:'緑野農場',district:'士幌',product:'カビ毒吸着L',         unit:'kg', stock:42, target:20, lastCheck:'2025/03/18',nextCheck:'2025/04/12'},
+  {farmer:'緑野農場',district:'士幌',product:'乳頭保護液D',         unit:'本',stock:1,  target:2,  lastCheck:'2025/04/23',nextCheck:'2025/05/17'},
+  // 大地牧場
+  {farmer:'大地牧場',district:'士幌',product:'原料用A',             unit:'kg', stock:17, target:50, lastCheck:'2025/03/11',nextCheck:'2025/04/14'},
+  {farmer:'大地牧場',district:'士幌',product:'乳頭保護液Q',         unit:'本',stock:5,  target:2,  lastCheck:'2025/04/01',nextCheck:'2025/05/03'},
+  {farmer:'大地牧場',district:'士幌',product:'硫黄製品',            unit:'kg', stock:7,  target:15, lastCheck:'2025/04/23',nextCheck:'2025/05/07'},
+  {farmer:'大地牧場',district:'士幌',product:'重曹固形塩F',         unit:'袋',stock:8,  target:5,  lastCheck:'2025/03/05',nextCheck:'2025/03/25'},
+  {farmer:'大地牧場',district:'士幌',product:'乳頭保護液B-200L',   unit:'本',stock:2,  target:2,  lastCheck:'2025/04/25',nextCheck:'2025/05/09'},
+  {farmer:'大地牧場',district:'士幌',product:'固形塩E100',          unit:'袋',stock:16, target:8,  lastCheck:'2025/03/31',nextCheck:'2025/05/02'},
+  // 北斗農場
+  {farmer:'北斗農場',district:'士幌',product:'原料用A',             unit:'kg', stock:69, target:50, lastCheck:'2025/03/02',nextCheck:'2025/03/28'},
+  {farmer:'北斗農場',district:'士幌',product:'重曹固形塩F',         unit:'袋',stock:1,  target:5,  lastCheck:'2025/03/26',nextCheck:'2025/04/16'},
+  {farmer:'北斗農場',district:'士幌',product:'カビ毒吸着L',         unit:'kg', stock:32, target:20, lastCheck:'2025/03/26',nextCheck:'2025/04/22'},
+  {farmer:'北斗農場',district:'士幌',product:'硫黄製品',            unit:'kg', stock:11, target:15, lastCheck:'2025/04/08',nextCheck:'2025/05/06'},
+  {farmer:'北斗農場',district:'士幌',product:'固形塩S60',           unit:'袋',stock:6,  target:10, lastCheck:'2025/04/27',nextCheck:'2025/05/11'},
+  {farmer:'北斗農場',district:'士幌',product:'搾乳駆虫剤',          unit:'本',stock:1,  target:1,  lastCheck:'2025/03/04',nextCheck:'2025/03/31'},
+  // 清流牧場
+  {farmer:'清流牧場',district:'士幌',product:'消化酵素A',           unit:'kg', stock:23, target:10, lastCheck:'2025/04/24',nextCheck:'2025/05/21'},
+  {farmer:'清流牧場',district:'士幌',product:'重曹固形塩A',         unit:'袋',stock:7,  target:5,  lastCheck:'2025/03/04',nextCheck:'2025/03/20'},
+  {farmer:'清流牧場',district:'士幌',product:'乳頭保護液Q',         unit:'本',stock:2,  target:2,  lastCheck:'2025/03/07',nextCheck:'2025/04/06'},
+  {farmer:'清流牧場',district:'士幌',product:'固形塩S60',           unit:'袋',stock:6,  target:10, lastCheck:'2025/04/26',nextCheck:'2025/05/17'},
+  {farmer:'清流牧場',district:'士幌',product:'ビタミン111',         unit:'kg', stock:23, target:10, lastCheck:'2025/03/11',nextCheck:'2025/04/04'},
+  {farmer:'清流牧場',district:'士幌',product:'硫黄製品',            unit:'kg', stock:28, target:15, lastCheck:'2025/03/29',nextCheck:'2025/05/03'},
+  {farmer:'清流牧場',district:'士幌',product:'固形塩E100',          unit:'袋',stock:7,  target:8,  lastCheck:'2025/04/13',nextCheck:'2025/04/30'},
+  // 山麓農場
+  {farmer:'山麓農場',district:'士幌',product:'消化酵素A',           unit:'kg', stock:9,  target:10, lastCheck:'2025/04/15',nextCheck:'2025/05/19'},
+  {farmer:'山麓農場',district:'士幌',product:'搾乳駆虫剤',          unit:'本',stock:1,  target:1,  lastCheck:'2025/04/15',nextCheck:'2025/05/02'},
+  {farmer:'山麓農場',district:'士幌',product:'カビ毒吸着L',         unit:'kg', stock:23, target:20, lastCheck:'2025/04/13',nextCheck:'2025/04/30'},
+  {farmer:'山麓農場',district:'士幌',product:'カビ毒吸着A',         unit:'kg', stock:24, target:20, lastCheck:'2025/04/01',nextCheck:'2025/05/03'},
+  // 白樺牧場
+  {farmer:'白樺牧場',district:'士幌',product:'乳頭保護液Q',         unit:'本',stock:1,  target:2,  lastCheck:'2025/03/22',nextCheck:'2025/04/07'},
+  {farmer:'白樺牧場',district:'士幌',product:'重曹固形塩F',         unit:'袋',stock:10, target:5,  lastCheck:'2025/04/22',nextCheck:'2025/05/11'},
+  {farmer:'白樺牧場',district:'士幌',product:'搾乳駆虫剤',          unit:'本',stock:2,  target:1,  lastCheck:'2025/03/15',nextCheck:'2025/04/10'},
+  {farmer:'白樺牧場',district:'士幌',product:'原料用A',             unit:'kg', stock:80, target:50, lastCheck:'2025/03/24',nextCheck:'2025/04/21'},
+  {farmer:'白樺牧場',district:'士幌',product:'乳頭保護液B-200L',   unit:'本',stock:3,  target:2,  lastCheck:'2025/03/24',nextCheck:'2025/04/10'},
+  {farmer:'白樺牧場',district:'士幌',product:'カビ毒吸着A',         unit:'kg', stock:38, target:20, lastCheck:'2025/03/26',nextCheck:'2025/04/11'},
+  {farmer:'白樺牧場',district:'士幌',product:'固形塩E100',          unit:'袋',stock:4,  target:8,  lastCheck:'2025/03/07',nextCheck:'2025/04/04'},
+  // 東光農場
+  {farmer:'東光農場',district:'士幌',product:'カビ毒吸着A',         unit:'kg', stock:43, target:20, lastCheck:'2025/04/08',nextCheck:'2025/05/05'},
+  {farmer:'東光農場',district:'士幌',product:'原料用A',             unit:'kg', stock:47, target:50, lastCheck:'2025/03/19',nextCheck:'2025/04/02'},
+  {farmer:'東光農場',district:'士幌',product:'乳頭保護液D',         unit:'本',stock:5,  target:2,  lastCheck:'2025/03/26',nextCheck:'2025/04/17'},
+  {farmer:'東光農場',district:'士幌',product:'重曹固形塩A',         unit:'袋',stock:3,  target:5,  lastCheck:'2025/03/12',nextCheck:'2025/03/29'},
+  {farmer:'東光農場',district:'士幌',product:'重曹固形塩F',         unit:'袋',stock:10, target:5,  lastCheck:'2025/04/17',nextCheck:'2025/05/21'},
+  {farmer:'東光農場',district:'士幌',product:'ビタミン111',         unit:'kg', stock:19, target:10, lastCheck:'2025/04/04',nextCheck:'2025/05/08'},
+  // 富士見牧場
+  {farmer:'富士見牧場',district:'士幌',product:'重曹固形塩F',       unit:'袋',stock:10, target:5,  lastCheck:'2025/03/27',nextCheck:'2025/04/22'},
+  {farmer:'富士見牧場',district:'士幌',product:'乳頭保護液Q',       unit:'本',stock:1,  target:2,  lastCheck:'2025/03/05',nextCheck:'2025/04/03'},
+  {farmer:'富士見牧場',district:'士幌',product:'カビ毒吸着L',       unit:'kg', stock:27, target:20, lastCheck:'2025/03/16',nextCheck:'2025/04/17'},
+  {farmer:'富士見牧場',district:'士幌',product:'搾乳駆虫剤',        unit:'本',stock:1,  target:1,  lastCheck:'2025/04/23',nextCheck:'2025/05/15'},
+  {farmer:'富士見牧場',district:'士幌',product:'乳頭保護液B-200L', unit:'本',stock:2,  target:2,  lastCheck:'2025/03/04',nextCheck:'2025/04/03'},
+  {farmer:'富士見牧場',district:'士幌',product:'消化酵素A',         unit:'kg', stock:3,  target:10, lastCheck:'2025/04/05',nextCheck:'2025/05/08'},
+  // 若葉農場
+  {farmer:'若葉農場',district:'士幌',product:'カビ毒吸着L',         unit:'kg', stock:49, target:20, lastCheck:'2025/03/29',nextCheck:'2025/04/14'},
+  {farmer:'若葉農場',district:'士幌',product:'乳頭保護液Q',         unit:'本',stock:0,  target:2,  lastCheck:'2025/03/15',nextCheck:'2025/04/09'},
+  {farmer:'若葉農場',district:'士幌',product:'乳頭保護液D',         unit:'本',stock:3,  target:2,  lastCheck:'2025/03/21',nextCheck:'2025/04/18'},
+  // 朝日牧場
+  {farmer:'朝日牧場',district:'士幌',product:'乳頭保護液B-60L',    unit:'本',stock:3,  target:3,  lastCheck:'2025/04/04',nextCheck:'2025/04/30'},
+  {farmer:'朝日牧場',district:'士幌',product:'乳頭保護液D',         unit:'本',stock:3,  target:2,  lastCheck:'2025/03/07',nextCheck:'2025/03/21'},
+  {farmer:'朝日牧場',district:'士幌',product:'重曹固形塩A',         unit:'袋',stock:7,  target:5,  lastCheck:'2025/04/12',nextCheck:'2025/05/11'},
+  {farmer:'朝日牧場',district:'士幌',product:'乳頭保護液B-200L',   unit:'本',stock:1,  target:2,  lastCheck:'2025/03/28',nextCheck:'2025/04/24'},
+  {farmer:'朝日牧場',district:'士幌',product:'ビタミン111',         unit:'kg', stock:4,  target:10, lastCheck:'2025/04/01',nextCheck:'2025/04/24'},
+  // 十勝農場
+  {farmer:'十勝農場',district:'士幌',product:'カビ毒吸着A',         unit:'kg', stock:29, target:20, lastCheck:'2025/04/07',nextCheck:'2025/04/23'},
+  {farmer:'十勝農場',district:'士幌',product:'原料用A',             unit:'kg', stock:47, target:50, lastCheck:'2025/04/16',nextCheck:'2025/05/13'},
+  {farmer:'十勝農場',district:'士幌',product:'乳頭保護液B-60L',    unit:'本',stock:7,  target:3,  lastCheck:'2025/04/17',nextCheck:'2025/05/06'},
+  {farmer:'十勝農場',district:'士幌',product:'カビ毒吸着L',         unit:'kg', stock:7,  target:20, lastCheck:'2025/04/05',nextCheck:'2025/04/24'},
+  {farmer:'十勝農場',district:'士幌',product:'固形塩E100',          unit:'袋',stock:16, target:8,  lastCheck:'2025/03/02',nextCheck:'2025/03/17'},
+  {farmer:'十勝農場',district:'士幌',product:'乳頭保護液Q',         unit:'本',stock:5,  target:2,  lastCheck:'2025/04/15',nextCheck:'2025/05/01'},
+  {farmer:'十勝農場',district:'士幌',product:'固形塩S60',           unit:'袋',stock:4,  target:10, lastCheck:'2025/03/16',nextCheck:'2025/03/30'},
+  {farmer:'十勝農場',district:'士幌',product:'重曹固形塩A',         unit:'袋',stock:5,  target:5,  lastCheck:'2025/03/27',nextCheck:'2025/04/24'},
+  {farmer:'十勝農場',district:'士幌',product:'乳頭保護液B-200L',   unit:'本',stock:1,  target:2,  lastCheck:'2025/03/19',nextCheck:'2025/04/23'},
+  {farmer:'十勝農場',district:'士幌',product:'搾乳駆虫剤',          unit:'本',stock:1,  target:1,  lastCheck:'2025/04/18',nextCheck:'2025/05/09'},
+  // 音更大牧場
+  {farmer:'音更大牧場',district:'音更',product:'乳頭保護液D',       unit:'本',stock:3,  target:2,  lastCheck:'2025/04/01',nextCheck:'2025/04/15'},
+  {farmer:'音更大牧場',district:'音更',product:'カビ毒吸着A',       unit:'kg', stock:46, target:20, lastCheck:'2025/03/31',nextCheck:'2025/04/24'},
+  {farmer:'音更大牧場',district:'音更',product:'ビタミン111',       unit:'kg', stock:8,  target:10, lastCheck:'2025/03/13',nextCheck:'2025/04/12'},
+  {farmer:'音更大牧場',district:'音更',product:'硫黄製品',          unit:'kg', stock:35, target:15, lastCheck:'2025/03/14',nextCheck:'2025/04/01'},
+  {farmer:'音更大牧場',district:'音更',product:'重曹固形塩F',       unit:'袋',stock:9,  target:5,  lastCheck:'2025/04/15',nextCheck:'2025/05/03'},
+  {farmer:'音更大牧場',district:'音更',product:'原料用A',           unit:'kg', stock:39, target:50, lastCheck:'2025/04/10',nextCheck:'2025/05/08'},
+  {farmer:'音更大牧場',district:'音更',product:'固形塩S60',         unit:'袋',stock:25, target:10, lastCheck:'2025/04/12',nextCheck:'2025/05/07'},
+  // 緑ヶ丘農場
+  {farmer:'緑ヶ丘農場',district:'音更',product:'乳頭保護液B-200L', unit:'本',stock:2,  target:2,  lastCheck:'2025/04/11',nextCheck:'2025/05/12'},
+  {farmer:'緑ヶ丘農場',district:'音更',product:'重曹固形塩A',       unit:'袋',stock:5,  target:5,  lastCheck:'2025/04/07',nextCheck:'2025/05/10'},
+  {farmer:'緑ヶ丘農場',district:'音更',product:'乳頭保護液B-60L',  unit:'本',stock:6,  target:3,  lastCheck:'2025/03/20',nextCheck:'2025/04/23'},
+  {farmer:'緑ヶ丘農場',district:'音更',product:'消化酵素A',         unit:'kg', stock:19, target:10, lastCheck:'2025/03/15',nextCheck:'2025/04/02'},
+  {farmer:'緑ヶ丘農場',district:'音更',product:'重曹固形塩F',       unit:'袋',stock:5,  target:5,  lastCheck:'2025/03/31',nextCheck:'2025/04/21'},
+  {farmer:'緑ヶ丘農場',district:'音更',product:'ビタミン111',       unit:'kg', stock:10, target:10, lastCheck:'2025/03/04',nextCheck:'2025/04/05'},
+  {farmer:'緑ヶ丘農場',district:'音更',product:'搾乳駆虫剤',        unit:'本',stock:1,  target:1,  lastCheck:'2025/03/18',nextCheck:'2025/04/19'},
+  // 帯広西農場
+  {farmer:'帯広西農場',district:'音更',product:'搾乳駆虫剤',        unit:'本',stock:0,  target:1,  lastCheck:'2025/04/14',nextCheck:'2025/04/30'},
+  {farmer:'帯広西農場',district:'音更',product:'重曹固形塩F',       unit:'袋',stock:1,  target:5,  lastCheck:'2025/03/22',nextCheck:'2025/04/05'},
+  {farmer:'帯広西農場',district:'音更',product:'乳頭保護液D',       unit:'本',stock:5,  target:2,  lastCheck:'2025/03/06',nextCheck:'2025/03/24'},
+  // 新生牧場
+  {farmer:'新生牧場',district:'音更',product:'重曹固形塩A',         unit:'袋',stock:12, target:5,  lastCheck:'2025/04/29',nextCheck:'2025/05/14'},
+  {farmer:'新生牧場',district:'音更',product:'消化酵素A',           unit:'kg', stock:11, target:10, lastCheck:'2025/04/05',nextCheck:'2025/05/07'},
+  {farmer:'新生牧場',district:'音更',product:'乳頭保護液B-200L',   unit:'本',stock:4,  target:2,  lastCheck:'2025/04/13',nextCheck:'2025/04/27'},
+  {farmer:'新生牧場',district:'音更',product:'乳頭保護液Q',         unit:'本',stock:3,  target:2,  lastCheck:'2025/03/11',nextCheck:'2025/04/04'},
+  {farmer:'新生牧場',district:'音更',product:'搾乳駆虫剤',          unit:'本',stock:0,  target:1,  lastCheck:'2025/04/09',nextCheck:'2025/05/14'},
+  {farmer:'新生牧場',district:'音更',product:'原料用A',             unit:'kg', stock:51, target:50, lastCheck:'2025/04/07',nextCheck:'2025/04/22'},
+  // 千代田農場
+  {farmer:'千代田農場',district:'音更',product:'消化酵素A',         unit:'kg', stock:17, target:10, lastCheck:'2025/03/02',nextCheck:'2025/03/23'},
+  {farmer:'千代田農場',district:'音更',product:'乳頭保護液D',       unit:'本',stock:0,  target:2,  lastCheck:'2025/03/07',nextCheck:'2025/03/24'},
+  {farmer:'千代田農場',district:'音更',product:'ビタミン111',       unit:'kg', stock:7,  target:10, lastCheck:'2025/04/22',nextCheck:'2025/05/06'},
+  {farmer:'千代田農場',district:'音更',product:'硫黄製品',          unit:'kg', stock:6,  target:15, lastCheck:'2025/04/06',nextCheck:'2025/04/28'},
+  // 高島牧場
+  {farmer:'高島牧場',district:'池田高島',product:'乳頭保護液B-200L',unit:'本',stock:0,  target:2,  lastCheck:'2025/04/19',nextCheck:'2025/05/14'},
+  {farmer:'高島牧場',district:'池田高島',product:'乳頭保護液D',     unit:'本',stock:2,  target:2,  lastCheck:'2025/03/14',nextCheck:'2025/04/15'},
+  {farmer:'高島牧場',district:'池田高島',product:'硫黄製品',        unit:'kg', stock:23, target:15, lastCheck:'2025/03/11',nextCheck:'2025/04/09'},
+  // 池田農場
+  {farmer:'池田農場',district:'池田高島',product:'乳頭保護液Q',     unit:'本',stock:2,  target:2,  lastCheck:'2025/03/30',nextCheck:'2025/04/23'},
+  {farmer:'池田農場',district:'池田高島',product:'重曹固形塩F',     unit:'袋',stock:1,  target:5,  lastCheck:'2025/04/26',nextCheck:'2025/05/15'},
+  {farmer:'池田農場',district:'池田高島',product:'原料用A',         unit:'kg', stock:65, target:50, lastCheck:'2025/04/25',nextCheck:'2025/05/24'},
+  {farmer:'池田農場',district:'池田高島',product:'消化酵素A',       unit:'kg', stock:17, target:10, lastCheck:'2025/03/29',nextCheck:'2025/04/13'},
+  // 利別牧場
+  {farmer:'利別牧場',district:'池田高島',product:'乳頭保護液D',     unit:'本',stock:5,  target:2,  lastCheck:'2025/04/30',nextCheck:'2025/05/26'},
+  {farmer:'利別牧場',district:'池田高島',product:'乳頭保護液B-60L',unit:'本',stock:7,  target:3,  lastCheck:'2025/04/11',nextCheck:'2025/05/06'},
+  {farmer:'利別牧場',district:'池田高島',product:'乳頭保護液Q',     unit:'本',stock:1,  target:2,  lastCheck:'2025/04/03',nextCheck:'2025/04/22'},
+  {farmer:'利別牧場',district:'池田高島',product:'乳頭保護液B-200L',unit:'本',stock:0, target:2,  lastCheck:'2025/04/10',nextCheck:'2025/05/03'},
+],
+visits: [
+  {id:1, date:'2025/03/31',farmer:'あかね牧場', district:'士幌',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/04/15',person:'担当者名'},
+  {id:2, date:'2025/03/22',farmer:'あかね牧場', district:'士幌',    check:'完了',content:'在庫確認のみ',  memo:'',next:'2025/04/07',person:'担当者名'},
+  {id:3, date:'2025/03/16',farmer:'緑野農場',   district:'士幌',    check:'完了',content:'定期訪問',      memo:'',next:'2025/04/03',person:'担当者名'},
+  {id:4, date:'2025/01/12',farmer:'緑野農場',   district:'士幌',    check:'完了',content:'クレーム対応',  memo:'',next:'2025/01/29',person:'担当者名'},
+  {id:5, date:'2025/01/19',farmer:'緑野農場',   district:'士幌',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/02/13',person:'担当者名'},
+  {id:6, date:'2025/02/16',farmer:'大地牧場',   district:'士幌',    check:'完了',content:'新商品提案',    memo:'',next:'2025/03/16',person:'担当者名'},
+  {id:7, date:'2025/01/27',farmer:'大地牧場',   district:'士幌',    check:'完了',content:'新商品提案',    memo:'',next:'2025/02/24',person:'担当者名'},
+  {id:8, date:'2025/02/14',farmer:'大地牧場',   district:'士幌',    check:'完了',content:'定期訪問',      memo:'',next:'2025/03/01',person:'担当者名'},
+  {id:9, date:'2025/01/21',farmer:'北斗農場',   district:'士幌',    check:'完了',content:'定期訪問',      memo:'',next:'2025/02/05',person:'担当者名'},
+  {id:10,date:'2025/02/16',farmer:'北斗農場',   district:'士幌',    check:'完了',content:'クレーム対応',  memo:'',next:'2025/03/07',person:'担当者名'},
+  {id:11,date:'2025/02/27',farmer:'清流牧場',   district:'士幌',    check:'完了',content:'クレーム対応',  memo:'',next:'2025/03/20',person:'担当者名'},
+  {id:12,date:'2025/02/22',farmer:'清流牧場',   district:'士幌',    check:'完了',content:'在庫確認のみ',  memo:'',next:'2025/03/14',person:'担当者名'},
+  {id:13,date:'2025/01/31',farmer:'清流牧場',   district:'士幌',    check:'完了',content:'定期訪問',      memo:'',next:'2025/02/24',person:'担当者名'},
+  {id:14,date:'2025/03/17',farmer:'清流牧場',   district:'士幌',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/04/04',person:'担当者名'},
+  {id:15,date:'2025/02/15',farmer:'山麓農場',   district:'士幌',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/03/06',person:'担当者名'},
+  {id:16,date:'2025/01/19',farmer:'山麓農場',   district:'士幌',    check:'完了',content:'在庫確認のみ',  memo:'',next:'2025/02/02',person:'担当者名'},
+  {id:17,date:'2025/02/24',farmer:'山麓農場',   district:'士幌',    check:'完了',content:'在庫確認のみ',  memo:'',next:'2025/03/12',person:'担当者名'},
+  {id:18,date:'2025/01/31',farmer:'白樺牧場',   district:'士幌',    check:'完了',content:'新商品提案',    memo:'',next:'2025/02/25',person:'担当者名'},
+  {id:19,date:'2025/02/14',farmer:'白樺牧場',   district:'士幌',    check:'完了',content:'クレーム対応',  memo:'',next:'2025/03/10',person:'担当者名'},
+  {id:20,date:'2025/03/08',farmer:'白樺牧場',   district:'士幌',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/03/26',person:'担当者名'},
+  {id:21,date:'2025/03/06',farmer:'東光農場',   district:'士幌',    check:'完了',content:'在庫確認のみ',  memo:'',next:'2025/04/03',person:'担当者名'},
+  {id:22,date:'2025/01/03',farmer:'東光農場',   district:'士幌',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/01/24',person:'担当者名'},
+  {id:23,date:'2025/02/07',farmer:'東光農場',   district:'士幌',    check:'完了',content:'新商品提案',    memo:'',next:'2025/03/04',person:'担当者名'},
+  {id:24,date:'2025/02/02',farmer:'東光農場',   district:'士幌',    check:'完了',content:'新商品提案',    memo:'',next:'2025/02/17',person:'担当者名'},
+  {id:25,date:'2025/01/22',farmer:'富士見牧場', district:'士幌',    check:'完了',content:'定期訪問',      memo:'',next:'2025/02/16',person:'担当者名'},
+  {id:26,date:'2025/03/30',farmer:'富士見牧場', district:'士幌',    check:'完了',content:'クレーム対応',  memo:'',next:'2025/04/19',person:'担当者名'},
+  {id:27,date:'2025/01/27',farmer:'若葉農場',   district:'士幌',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/02/15',person:'担当者名'},
+  {id:28,date:'2025/01/03',farmer:'若葉農場',   district:'士幌',    check:'完了',content:'新商品提案',    memo:'',next:'2025/01/22',person:'担当者名'},
+  {id:29,date:'2025/02/07',farmer:'朝日牧場',   district:'士幌',    check:'完了',content:'在庫確認のみ',  memo:'',next:'2025/03/02',person:'担当者名'},
+  {id:30,date:'2025/03/16',farmer:'朝日牧場',   district:'士幌',    check:'完了',content:'在庫確認のみ',  memo:'',next:'2025/04/09',person:'担当者名'},
+  {id:31,date:'2025/03/07',farmer:'朝日牧場',   district:'士幌',    check:'完了',content:'在庫確認のみ',  memo:'',next:'2025/03/29',person:'担当者名'},
+  {id:32,date:'2025/01/29',farmer:'十勝農場',   district:'士幌',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/02/17',person:'担当者名'},
+  {id:33,date:'2025/03/13',farmer:'十勝農場',   district:'士幌',    check:'完了',content:'新商品提案',    memo:'',next:'2025/03/29',person:'担当者名'},
+  {id:34,date:'2025/03/22',farmer:'音更大牧場', district:'音更',    check:'完了',content:'クレーム対応',  memo:'',next:'2025/04/21',person:'担当者名'},
+  {id:35,date:'2025/02/27',farmer:'音更大牧場', district:'音更',    check:'完了',content:'在庫確認のみ',  memo:'',next:'2025/03/26',person:'担当者名'},
+  {id:36,date:'2025/03/03',farmer:'緑ヶ丘農場', district:'音更',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/04/02',person:'担当者名'},
+  {id:37,date:'2025/01/25',farmer:'緑ヶ丘農場', district:'音更',    check:'完了',content:'定期訪問',      memo:'',next:'2025/02/19',person:'担当者名'},
+  {id:38,date:'2025/03/10',farmer:'緑ヶ丘農場', district:'音更',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/03/25',person:'担当者名'},
+  {id:39,date:'2025/02/23',farmer:'帯広西農場', district:'音更',    check:'完了',content:'クレーム対応',  memo:'',next:'2025/03/12',person:'担当者名'},
+  {id:40,date:'2025/03/02',farmer:'帯広西農場', district:'音更',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/03/18',person:'担当者名'},
+  {id:41,date:'2025/02/07',farmer:'帯広西農場', district:'音更',    check:'完了',content:'在庫確認のみ',  memo:'',next:'2025/02/24',person:'担当者名'},
+  {id:42,date:'2025/02/05',farmer:'新生牧場',   district:'音更',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/02/22',person:'担当者名'},
+  {id:43,date:'2025/01/23',farmer:'新生牧場',   district:'音更',    check:'完了',content:'新商品提案',    memo:'',next:'2025/02/18',person:'担当者名'},
+  {id:44,date:'2025/03/27',farmer:'新生牧場',   district:'音更',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/04/22',person:'担当者名'},
+  {id:45,date:'2025/01/27',farmer:'新生牧場',   district:'音更',    check:'完了',content:'定期訪問',      memo:'',next:'2025/02/16',person:'担当者名'},
+  {id:46,date:'2025/01/22',farmer:'千代田農場', district:'音更',    check:'完了',content:'クレーム対応',  memo:'',next:'2025/02/21',person:'担当者名'},
+  {id:47,date:'2025/01/28',farmer:'千代田農場', district:'音更',    check:'完了',content:'クレーム対応',  memo:'',next:'2025/02/17',person:'担当者名'},
+  {id:48,date:'2025/01/11',farmer:'千代田農場', district:'音更',    check:'完了',content:'補充提案あり',  memo:'',next:'2025/02/01',person:'担当者名'},
+  {id:49,date:'2025/01/22',farmer:'高島牧場',   district:'池田高島',check:'完了',content:'新商品提案',    memo:'',next:'2025/02/17',person:'担当者名'},
+  {id:50,date:'2025/01/15',farmer:'高島牧場',   district:'池田高島',check:'完了',content:'補充提案あり',  memo:'',next:'2025/02/04',person:'担当者名'},
+  {id:51,date:'2025/02/03',farmer:'高島牧場',   district:'池田高島',check:'完了',content:'クレーム対応',  memo:'',next:'2025/02/22',person:'担当者名'},
+  {id:52,date:'2025/03/22',farmer:'池田農場',   district:'池田高島',check:'完了',content:'クレーム対応',  memo:'',next:'2025/04/17',person:'担当者名'},
+  {id:53,date:'2025/03/13',farmer:'池田農場',   district:'池田高島',check:'完了',content:'補充提案あり',  memo:'',next:'2025/04/08',person:'担当者名'},
+  {id:54,date:'2025/03/02',farmer:'利別牧場',   district:'池田高島',check:'完了',content:'新商品提案',    memo:'',next:'2025/03/23',person:'担当者名'},
+  {id:55,date:'2025/03/18',farmer:'利別牧場',   district:'池田高島',check:'完了',content:'補充提案あり',  memo:'',next:'2025/04/15',person:'担当者名'},
+  {id:56,date:'2025/01/03',farmer:'利別牧場',   district:'池田高島',check:'完了',content:'補充提案あり',  memo:'',next:'2025/01/30',person:'担当者名'},
+],
+nextId: 57
+};
+
+// ═══════════════════════════════════════
+//  STATE & STORAGE
+// ═══════════════════════════════════════
+let db = loadDB();
+
+function loadDB() {
+  try {
+    const s = localStorage.getItem('livestock_v1');
+    if (s) return JSON.parse(s);
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(INIT));
+}
+function saveDB() {
+  localStorage.setItem('livestock_v1', JSON.stringify(db));
+}
+
+let curPage = 'farmers';
+let curFarmer = null;
+let detTab = 'inv';
+let fFilter = '全て';
+let vFilter = '全て';
+
+// ═══════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════
+function districts() {
+  return ['全て', ...new Set(db.farmers.map(f => f.district))];
+}
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+}
+function todayInput() {
+  return todayISO().replace(/\//g, '-');
+}
+function disp2input(s) { return s ? s.replace(/\//g,'-') : ''; }
+function input2disp(s) { return s ? s.replace(/-/g,'/') : ''; }
+
+function isAlert(item) { return item.stock <= item.target; }
+function farmerAlertCnt(name) { return db.inventory.filter(i => i.farmer === name && isAlert(i)).length; }
+function totalAlerts() { return db.inventory.filter(i => isAlert(i)).length; }
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('on'), 2000);
+}
+function updateBadge() {
+  const cnt = totalAlerts();
+  const b = document.getElementById('alert-badge');
+  b.textContent = cnt;
+  b.style.display = cnt ? '' : 'none';
+}
+
+// ═══════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════
+function goPage(page, farmerName) {
+  // Pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  // Nav buttons
+  ['farmers','alerts','visits'].forEach(id => {
+    document.getElementById('nav-'+id).classList.remove('on');
+  });
+  const fab = document.getElementById('fab');
+  const backBtn = document.getElementById('back-btn');
+  const title = document.getElementById('hdr-title');
+
+  if (page === 'detail') {
+    curFarmer = farmerName;
+    curPage = 'detail';
+    document.getElementById('pg-detail').classList.add('on');
+    document.getElementById('nav-farmers').classList.add('on');
+    backBtn.style.display = 'block';
+    title.textContent = farmerName;
+    fab.classList.remove('on');
+    renderDetail();
+  } else {
+    curPage = page;
+    document.getElementById('pg-'+page).classList.add('on');
+    document.getElementById('nav-'+page).classList.add('on');
+    backBtn.style.display = 'none';
+    fab.classList.remove('on');
+
+    if (page === 'farmers') {
+      title.textContent = '畜産在庫管理';
+      renderFarmers();
+    } else if (page === 'alerts') {
+      title.textContent = '要補充リスト';
+      renderAlerts();
+    } else if (page === 'visits') {
+      title.textContent = '訪問記録';
+      fab.classList.add('on');
+      renderVisits();
+    }
+  }
+  window.scrollTo(0, 0);
+}
+
+function goBack() {
+  if (curPage === 'detail') goPage('farmers');
+}
+
+// ═══════════════════════════════════════
+//  RENDER: FARMERS
+// ═══════════════════════════════════════
+function renderFarmers() {
+  const ds = districts();
+  document.getElementById('farmer-ftabs').innerHTML = ds.map(d =>
+    `<button class="ftab${d===fFilter?' on':''}" onclick="setFF('${d}')">${d}</button>`
+  ).join('');
+
+  const list = fFilter === '全て' ? db.farmers : db.farmers.filter(f => f.district === fFilter);
+  if (!list.length) {
+    document.getElementById('farmer-list').innerHTML = '<div class="empty"><div class="empty-icon">🏠</div><div class="empty-txt">農家が見つかりません</div></div>';
+    return;
+  }
+
+  document.getElementById('farmer-list').innerHTML = list.map(f => {
+    const ac = farmerAlertCnt(f.name);
+    const lv = db.visits.filter(v => v.farmer === f.name).sort((a,b) => b.date.localeCompare(a.date))[0];
+    return `<div class="card">
+      <div class="card-row" onclick="goPage('detail','${esc(f.name)}')">
+        <div class="card-main">
+          <div class="card-title">
+            ${esc(f.name)}
+            ${f.rel==='重要'?'<span class="bdg bdg-b">重要</span>':''}
+            ${ac>0?`<span class="bdg bdg-r">要補充 ${ac}</span>`:''}
+          </div>
+          <div class="card-sub">${f.district} · ${f.type} · ${f.cattle}頭${lv?' · 最終訪問: '+lv.date:''}</div>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+function setFF(d) { fFilter = d; renderFarmers(); }
+
+// ═══════════════════════════════════════
+//  RENDER: DETAIL
+// ═══════════════════════════════════════
+function renderDetail() {
+  const f = db.farmers.find(x => x.name === curFarmer);
+  const ac = farmerAlertCnt(curFarmer);
+
+  document.getElementById('det-hdr-area').innerHTML = `
+    <div class="det-hdr">
+      <div class="det-name">${esc(curFarmer)}</div>
+      <div class="det-meta">
+        <span class="bdg bdg-gray">${f.district}</span>
+        <span class="bdg bdg-gray">${f.type}</span>
+        <span class="bdg bdg-gray">${f.cattle}頭</span>
+        ${f.rel==='重要'?'<span class="bdg bdg-b">重要顧客</span>':''}
+        ${ac>0?`<span class="bdg bdg-r">要補充 ${ac}件</span>`:'<span class="bdg bdg-g">在庫良好</span>'}
+      </div>
+      <div style="margin-top:10px">
+        <textarea class="memo-area" id="farmer-memo" placeholder="メモ…">${esc(f.memo||'')}</textarea>
+        <button class="memo-save" onclick="saveMemo()">メモ保存</button>
+      </div>
+    </div>`;
+
+  document.getElementById('det-tabs').innerHTML = `
+    <button class="det-tab${detTab==='inv'?' on':''}" onclick="setDetTab('inv')">在庫 (${db.inventory.filter(i=>i.farmer===curFarmer).length})</button>
+    <button class="det-tab${detTab==='vis'?' on':''}" onclick="setDetTab('vis')">訪問履歴 (${db.visits.filter(v=>v.farmer===curFarmer).length})</button>`;
+
+  document.getElementById('det-body').innerHTML = detTab === 'inv' ? renderInvTab() : renderVisTab();
+}
+function setDetTab(t) { detTab = t; renderDetail(); }
+
+function renderInvTab() {
+  const items = db.inventory.filter(i => i.farmer === curFarmer)
+    .sort((a,b) => (isAlert(b)?1:0)-(isAlert(a)?1:0) || a.product.localeCompare(b.product));
+  if (!items.length) return '<div class="empty"><div class="empty-txt">在庫データなし</div></div>';
+
+  return '<div class="inv-wrap">' + items.map((item, idx) => {
+    const al = isAlert(item);
+    const key = esc(item.farmer)+'|'+esc(item.product);
+    return `<div class="inv-item${al?' alert':''}">
+      <div class="inv-top">
+        <span class="inv-name">${esc(item.product)}</span>
+        <span class="bdg ${al?'bdg-r':'bdg-g'}">${al?'要補充':'適正'}</span>
+      </div>
+      <div class="inv-ctrl">
+        <button class="stkbtn" onclick="adj('${key}',-1)">−</button>
+        <input class="stkinput" type="number" min="0" value="${item.stock}"
+          id="si-${idx}"
+          onblur="commitStock('${key}',this)"
+          oninput="this.classList.add('dirty')">
+        <button class="stkbtn" onclick="adj('${key}',1)">＋</button>
+        <span class="stk-unit">${item.unit}</span>
+        <span class="stk-target">目安: ${item.target}${item.unit}</span>
+      </div>
+      <div class="inv-date">最終確認: ${item.lastCheck} ／ 次回: ${item.nextCheck}</div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function renderVisTab() {
+  const visits = db.visits.filter(v => v.farmer === curFarmer)
+    .sort((a,b) => b.date.localeCompare(a.date));
+  const inner = !visits.length
+    ? '<div class="empty"><div class="empty-icon">📋</div><div class="empty-txt">訪問記録なし</div></div>'
+    : '<div class="vis-wrap">' + visits.map(v => `
+      <div class="vis-item">
+        <div class="vis-meta">${v.date} · ${v.check} · ${v.person}</div>
+        <div class="vis-content">${esc(v.content)}</div>
+        ${v.memo?`<div class="vis-memo">${esc(v.memo)}</div>`:''}
+        ${v.next?`<div class="vis-next">次回予定: ${v.next}</div>`:''}
+      </div>`).join('') + '</div>';
+
+  return inner + `<button class="add-vis-btn" onclick="openVisitModal('${esc(curFarmer)}')">＋ 訪問記録を追加</button>`;
+}
+
+function saveMemo() {
+  const f = db.farmers.find(x => x.name === curFarmer);
+  if (!f) return;
+  f.memo = document.getElementById('farmer-memo').value;
+  saveDB();
+  toast('メモを保存しました');
+}
+
+// ═══════════════════════════════════════
+//  STOCK CONTROL
+// ═══════════════════════════════════════
+function findItem(key) {
+  const [farmer, product] = key.split('|');
+  return db.inventory.find(i => i.farmer === farmer && i.product === product);
+}
+function updateItemStatus(item) {
+  item.lastCheck = todayISO();
+  // status recalc happens in isAlert() dynamically — no stored field needed
+  saveDB();
+  updateBadge();
+}
+
+function adj(key, delta) {
+  const item = findItem(key);
+  if (!item) return;
+  item.stock = Math.max(0, item.stock + delta);
+  updateItemStatus(item);
+  renderDetail();
+  toast('在庫を更新しました');
+}
+function commitStock(key, input) {
+  const item = findItem(key);
+  if (!item) return;
+  const v = parseInt(input.value);
+  item.stock = isNaN(v) || v < 0 ? 0 : v;
+  input.value = item.stock;
+  input.classList.remove('dirty');
+  updateItemStatus(item);
+  updateBadge();
+  // Refresh badge in header without full re-render
+  const f = db.farmers.find(x => x.name === curFarmer);
+  const ac = farmerAlertCnt(curFarmer);
+  // re-render header badges
+  renderDetail();
+  toast('在庫を更新しました');
+}
+
+// ═══════════════════════════════════════
+//  RENDER: ALERTS
+// ═══════════════════════════════════════
+function renderAlerts() {
+  const alerts = db.inventory.filter(i => isAlert(i));
+  const body = document.getElementById('alert-body');
+  if (!alerts.length) {
+    body.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><div class="empty-txt">要補充の商品はありません</div></div>';
+    return;
+  }
+
+  // Group by district → farmer
+  const byDist = {};
+  alerts.forEach(i => {
+    if (!byDist[i.district]) byDist[i.district] = {};
+    if (!byDist[i.district][i.farmer]) byDist[i.district][i.farmer] = [];
+    byDist[i.district][i.farmer].push(i);
+  });
+
+  let html = `<div style="padding:6px 12px 2px;font-size:13px;color:var(--text-s)">計 ${alerts.length} 件</div>`;
+  for (const [dist, farmers] of Object.entries(byDist)) {
+    html += `<div class="sec-hdr">${dist}</div>`;
+    for (const [fn, items] of Object.entries(farmers)) {
+      const detail = items.map(i => `${i.product}（${i.stock}/${i.target}${i.unit}）`).join(' · ');
+      html += `<div class="card" style="margin:4px 8px;border-radius:10px;overflow:hidden">
+        <div class="card-row" onclick="goPage('detail','${esc(fn)}')">
+          <div class="card-main">
+            <div style="font-size:15px;font-weight:700">${esc(fn)}</div>
+            <div style="font-size:13px;color:var(--text-s);margin-top:2px">${detail}</div>
+          </div>
+          <span class="chevron">›</span>
+        </div>
+      </div>`;
+    }
+  }
+  body.innerHTML = html;
+}
+
+// ═══════════════════════════════════════
+//  RENDER: VISITS
+// ═══════════════════════════════════════
+function renderVisits() {
+  const ds = districts();
+  document.getElementById('visit-ftabs').innerHTML = ds.map(d =>
+    `<button class="ftab${d===vFilter?' on':''}" onclick="setVF('${d}')">${d}</button>`
+  ).join('');
+
+  const filtered = (vFilter === '全て' ? [...db.visits] : db.visits.filter(v => v.district === vFilter))
+    .sort((a,b) => b.date.localeCompare(a.date));
+
+  if (!filtered.length) {
+    document.getElementById('visit-list').innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-txt">訪問記録なし</div></div>';
+    return;
+  }
+  document.getElementById('visit-list').innerHTML = '<div class="vis-wrap" style="margin:8px;border-radius:10px;overflow:hidden;background:var(--white);box-shadow:0 1px 4px rgba(0,0,0,.09)">' +
+    filtered.map(v => `
+      <div class="vis-item">
+        <div class="vis-meta">${v.date} · ${v.district} · ${v.check} · ${v.person}</div>
+        <div class="vis-content"><span class="vis-farmer" onclick="goPage('detail','${esc(v.farmer)}')">${esc(v.farmer)}</span> — ${esc(v.content)}</div>
+        ${v.memo?`<div class="vis-memo">${esc(v.memo)}</div>`:''}
+        ${v.next?`<div class="vis-next">次回予定: ${v.next}</div>`:''}
+      </div>`).join('') + '</div>';
+}
+function setVF(d) { vFilter = d; renderVisits(); }
+
+// ═══════════════════════════════════════
+//  VISIT MODAL
+// ═══════════════════════════════════════
+function openVisitModal(preselect) {
+  const sel = document.getElementById('v-farmer');
+  sel.innerHTML = '<option value="">選択…</option>' +
+    db.farmers.map(f => `<option value="${esc(f.name)}"${f.name===(preselect||'')?' selected':''}>${esc(f.name)}（${f.district}）</option>`).join('');
+  document.getElementById('v-date').value = todayInput();
+  document.getElementById('v-next').value = '';
+  document.getElementById('v-memo').value = '';
+  document.getElementById('v-person').value = '';
+  document.getElementById('overlay').classList.add('on');
+}
+function closeModal() { document.getElementById('overlay').classList.remove('on'); }
+function overlayClick(e) { if (e.target === document.getElementById('overlay')) closeModal(); }
+
+function saveVisit() {
+  const fn = document.getElementById('v-farmer').value;
+  if (!fn) { alert('農家を選択してください'); return; }
+  const d = document.getElementById('v-date').value;
+  if (!d) { alert('訪問日を入力してください'); return; }
+  const f = db.farmers.find(x => x.name === fn);
+  db.visits.unshift({
+    id: db.nextId++,
+    date: input2disp(d),
+    farmer: fn,
+    district: f ? f.district : '',
+    check: document.getElementById('v-check').value,
+    content: document.getElementById('v-content').value,
+    memo: document.getElementById('v-memo').value.trim(),
+    next: input2disp(document.getElementById('v-next').value),
+    person: document.getElementById('v-person').value.trim(),
+  });
+  saveDB();
+  closeModal();
+  toast('訪問記録を保存しました');
+  if (curPage === 'visits') renderVisits();
+  if (curPage === 'detail' && curFarmer === fn) renderDetail();
+}
+
+// ═══════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════
+function exportData() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'livestock_backup_' + todayISO().replace(/\//g,'-') + '.json';
+  a.click();
+}
+
+// ═══════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ═══════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════
+function esc2(s) { return String(s||''); }
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+function init() {
+  try {
+    updateBadge();
+    renderFarmers();
+  } catch(e) {
+    document.getElementById('farmer-list').innerHTML =
+      '<div style="padding:20px;color:red">エラー: ' + e.message + '</div>';
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
