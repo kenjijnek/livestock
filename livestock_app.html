@@ -193,6 +193,9 @@ body {
 .inv-usage-est { color: var(--primary); }
 .section-sep { border: none; border-top: 1px solid var(--border); margin: 12px 0 8px; }
 .modal-section-lbl { font-size: 12px; font-weight: 700; color: var(--text-s); margin-bottom: 10px; letter-spacing: .3px; }
+.suggest-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.suggest-btn { padding: 6px 12px; background: var(--primary-l); color: var(--primary); border: 1px solid var(--primary); border-radius: 20px; font-size: 13px; cursor: pointer; }
+.suggest-btn:active { background: var(--primary); color: var(--white); }
 
 /* ── Visit items ── */
 .vis-wrap { margin: 8px; border-radius: 10px; overflow: hidden; background: var(--white); box-shadow: 0 1px 4px rgba(0,0,0,.09); }
@@ -1238,11 +1241,12 @@ function deleteFarmer(name) {
 function openInvEditModal(farmerName, product) {
   const item = product ? db.inventory.find(i => i.farmer === farmerName && i.product === product) : null;
   document.getElementById('edit-modal-title').textContent = item ? '商品を編集' : '商品を追加';
-  const allProducts = [...new Set(db.inventory.map(i => i.product))].sort();
-  const datalist = `<datalist id="product-list">${allProducts.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>`;
-  document.getElementById('edit-modal-body').innerHTML = datalist + `
+  document.getElementById('edit-modal-body').innerHTML = `
     <div class="fg"><label class="flabel">商品名</label>
-      <input type="text" class="fctl" id="ei-product" value="${esc(item?item.product:'')}" placeholder="商品名" list="product-list" autocomplete="off"></div>
+      <input type="text" class="fctl" id="ei-product" value="${esc(item?item.product:'')}" placeholder="商品名" autocomplete="off"
+        oninput="showSuggest('ei-product','ei-suggest','')"
+        onfocus="showSuggest('ei-product','ei-suggest','')">
+      <div id="ei-suggest" class="suggest-list" style="display:none"></div></div>
     <div class="fg"><label class="flabel">単位</label>
       <input type="text" class="fctl" id="ei-unit" value="${esc(item?item.unit:'')}" placeholder="kg / 袋 / 本"></div>
     <div class="fg"><label class="flabel">現在庫数</label>
@@ -1307,6 +1311,24 @@ function deleteInvItem(farmerName, product) {
 function closeEditModal() { document.getElementById('edit-overlay').classList.remove('on'); }
 function editOverlayClick(e) { if (e.target === document.getElementById('edit-overlay')) closeEditModal(); }
 
+function showSuggest(inputId, listId, farmerName) {
+  const val = document.getElementById(inputId).value.toLowerCase();
+  const all = [...new Set(db.inventory.map(i => i.product))].sort();
+  const filtered = val ? all.filter(p => p.toLowerCase().includes(val)) : all;
+  const list = document.getElementById(listId);
+  if (!list) return;
+  list.innerHTML = filtered.map(p =>
+    `<button type="button" class="suggest-btn" onclick="pickSuggest('${inputId}','${listId}','${esc(p)}','${esc(farmerName||'')}')">${esc(p)}</button>`
+  ).join('');
+  list.style.display = filtered.length ? 'flex' : 'none';
+}
+
+function pickSuggest(inputId, listId, product, farmerName) {
+  document.getElementById(inputId).value = product;
+  document.getElementById(listId).style.display = 'none';
+  if (farmerName) autoFillOrderUnit(product, farmerName);
+}
+
 // ═══════════════════════════════════════
 //  ORDER HISTORY
 // ═══════════════════════════════════════
@@ -1348,13 +1370,13 @@ function renderOrderTab() {
 }
 
 function openOrderModal(farmerName) {
-  const allProducts = [...new Set(db.inventory.map(i => i.product))].sort();
   document.getElementById('edit-modal-title').textContent = '注文を記録';
   document.getElementById('edit-modal-body').innerHTML =
-    `<datalist id="op-list">${allProducts.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
-    <div class="fg"><label class="flabel">商品名</label>
-      <input type="text" class="fctl" id="eo-product" placeholder="商品名" list="op-list" autocomplete="off"
-        oninput="autoFillOrderUnit(this.value,'${esc(farmerName)}')"></div>
+    `<div class="fg"><label class="flabel">商品名</label>
+      <input type="text" class="fctl" id="eo-product" placeholder="商品名" autocomplete="off"
+        oninput="showSuggest('eo-product','eo-suggest','${esc(farmerName)}'); autoFillOrderUnit(this.value,'${esc(farmerName)}')"
+        onfocus="showSuggest('eo-product','eo-suggest','${esc(farmerName)}')">
+      <div id="eo-suggest" class="suggest-list" style="display:none"></div></div>
     <div class="fg"><label class="flabel">注文日</label>
       <input type="date" class="fctl" id="eo-date" value="${todayInput()}"></div>
     <div class="fg"><label class="flabel">数量</label>
