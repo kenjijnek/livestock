@@ -186,8 +186,13 @@ body {
 .stkinput:focus { outline: none; border-color: var(--primary); }
 .stkinput.dirty { border-color: var(--warning); background: var(--warning-l); }
 .stk-unit { font-size: 13px; color: var(--text-s); }
+.stk-unit-note { font-size: 11px; color: var(--text-s); }
 .stk-target { font-size: 12px; color: var(--text-s); margin-left: auto; white-space: nowrap; }
 .inv-date { font-size: 11px; color: var(--text-s); margin-top: 5px; }
+.inv-usage { font-size: 11px; color: var(--text-s); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 6px; }
+.inv-usage-est { color: var(--primary); }
+.section-sep { border: none; border-top: 1px solid var(--border); margin: 12px 0 8px; }
+.modal-section-lbl { font-size: 12px; font-weight: 700; color: var(--text-s); margin-bottom: 10px; letter-spacing: .3px; }
 
 /* ── Visit items ── */
 .vis-wrap { margin: 8px; border-radius: 10px; overflow: hidden; background: var(--white); box-shadow: 0 1px 4px rgba(0,0,0,.09); }
@@ -335,6 +340,17 @@ textarea.fctl { height: 80px; resize: none; }
   border: 1.5px dashed var(--primary); border-radius: 10px;
   font-size: 14px; font-weight: 600; cursor: pointer;
 }
+/* ── Farmer card inventory rows ── */
+.farmer-inv-list { border-top: 1px solid var(--border); }
+.farmer-inv-row {
+  padding: 6px 14px;
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.farmer-inv-row:last-child { border-bottom: none; }
+.farmer-inv-row.alert-row { background: var(--danger-l); border-left: 3px solid var(--danger); }
+.farmer-inv-name { flex: 1; color: var(--text); }
+.farmer-inv-stock { font-size: 12px; color: var(--text-s); white-space: nowrap; }
 /* ── Today screen ── */
 .days-badge {
   font-size: 11px; font-weight: 700;
@@ -380,6 +396,22 @@ textarea.fctl { height: 80px; resize: none; }
   border: 1.5px dashed var(--primary); border-radius: 10px;
   font-size: 14px; font-weight: 600; cursor: pointer;
 }
+/* ── Order history ── */
+.ord-summary { margin: 8px; border-radius: 10px; overflow: hidden; background: var(--white); box-shadow: 0 1px 4px rgba(0,0,0,.09); }
+.ord-summary-item { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.ord-summary-item:last-child { border-bottom: none; }
+.ord-product { font-size: 14px; font-weight: 600; }
+.ord-stats { font-size: 12px; color: var(--text-s); margin-top: 3px; }
+.ord-next { font-size: 12px; color: var(--primary); margin-top: 2px; }
+.add-ord-btn {
+  display: block; width: calc(100% - 16px);
+  margin: 8px; padding: 12px;
+  background: var(--success); color: var(--white);
+  border: none; border-radius: 10px;
+  font-size: 15px; font-weight: 600; cursor: pointer; text-align: center;
+}
+.add-ord-btn:active { opacity: .85; }
+.par-hint { font-size: 12px; color: var(--warning); font-weight: 700; margin-left: auto; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -739,11 +771,13 @@ function loadDB() {
     if (s) {
       const d = JSON.parse(s);
       if (!d.stockLog) d.stockLog = [];
+      if (!d.orders) d.orders = [];
       return d;
     }
   } catch(e) {}
   const d = JSON.parse(JSON.stringify(INIT));
   d.stockLog = [];
+  d.orders = [];
   return d;
 }
 function saveDB() {
@@ -860,18 +894,29 @@ function renderFarmers() {
   document.getElementById('farmer-list').innerHTML = list.map(f => {
     const ac = farmerAlertCnt(f.name);
     const lv = db.visits.filter(v => v.farmer === f.name).sort((a,b) => b.date.localeCompare(a.date))[0];
+    const items = db.inventory.filter(i => i.farmer === f.name)
+      .sort((a,b) => (isAlert(b)?1:0)-(isAlert(a)?1:0) || a.product.localeCompare(b.product));
+    const invRows = items.map(item => {
+      const al = isAlert(item);
+      return `<div class="farmer-inv-row${al?' alert-row':''}">
+        <span class="farmer-inv-name">${esc(item.product)}</span>
+        <span class="bdg ${al?'bdg-r':'bdg-g'}" style="font-size:10px;padding:1px 6px">${al?'要補充':'適正'}</span>
+        <span class="farmer-inv-stock">${item.stock}/${item.target}${item.unit}${item.unitNote?' ('+esc(item.unitNote)+')':''}</span>
+      </div>`;
+    }).join('');
     return `<div class="card">
       <div class="card-row" onclick="goPage('detail','${esc(f.name)}')">
         <div class="card-main">
           <div class="card-title">
             ${esc(f.name)}
             ${f.rel==='重要'?'<span class="bdg bdg-b">重要</span>':''}
-            ${ac>0?`<span class="bdg bdg-r">要補充 ${ac}</span>`:''}
+            ${ac>0?`<span class="bdg bdg-r">要補充 ${ac}</span>`:'<span class="bdg bdg-g">良好</span>'}
           </div>
-          <div class="card-sub">${f.district} · ${f.type} · ${f.cattle}頭${lv?' · 最終訪問: '+lv.date:''}</div>
+          <div class="card-sub">${f.district} · ${f.cattle}頭${lv?' · 最終訪問: '+lv.date:''}</div>
         </div>
         <span class="chevron">›</span>
       </div>
+      ${items.length ? `<div class="farmer-inv-list">${invRows}</div>` : ''}
     </div>`;
   }).join('') + `<button class="add-farmer-btn" onclick="openFarmerEditModal('')">＋ 農家を追加</button>`;
 }
@@ -905,9 +950,13 @@ function renderDetail() {
 
   document.getElementById('det-tabs').innerHTML = `
     <button class="det-tab${detTab==='inv'?' on':''}" onclick="setDetTab('inv')">在庫 (${db.inventory.filter(i=>i.farmer===curFarmer).length})</button>
-    <button class="det-tab${detTab==='vis'?' on':''}" onclick="setDetTab('vis')">訪問履歴 (${db.visits.filter(v=>v.farmer===curFarmer).length})</button>`;
+    <button class="det-tab${detTab==='vis'?' on':''}" onclick="setDetTab('vis')">訪問履歴 (${db.visits.filter(v=>v.farmer===curFarmer).length})</button>
+    <button class="det-tab${detTab==='ord'?' on':''}" onclick="setDetTab('ord')">注文履歴 (${db.orders.filter(o=>o.farmer===curFarmer).length})</button>`;
 
-  document.getElementById('det-body').innerHTML = detTab === 'inv' ? renderInvTab() : renderVisTab();
+  document.getElementById('det-body').innerHTML =
+    detTab === 'inv' ? renderInvTab() :
+    detTab === 'vis' ? renderVisTab() :
+    renderOrderTab();
 }
 function setDetTab(t) { detTab = t; renderDetail(); }
 
@@ -936,9 +985,16 @@ function renderInvTab() {
           oninput="this.classList.add('dirty')">
         <button class="stkbtn" onclick="adj('${key}',1)">＋</button>
         <span class="stk-unit">${item.unit}</span>
-        <span class="stk-target">目安: ${item.target}${item.unit}</span>
+        ${item.unitNote?`<span class="stk-unit-note">(${esc(item.unitNote)})</span>`:''}
+        <span class="stk-target">発注点: ${item.target} / 目標: ${item.par!=null?item.par:'未設定'}${item.unit}</span>
+        ${item.par!=null && item.stock<item.par ? `<span class="par-hint">発注: ${item.par - item.stock}${item.unit}</span>` : ''}
       </div>
       <div class="inv-date">最終確認: ${item.lastCheck} ／ 次回: ${item.nextCheck}</div>
+      <div class="inv-usage">
+        ${item.inUsePct!=null?`<span>実質: ${effectiveStock(item).toFixed(1)}${item.unit}（使用中${item.inUsePct}%）</span>`:''}
+        ${item.dailyUse!=null?`<span>1日: ${item.dailyUse}${item.unit}/日</span>`:
+          (estimatedDailyUse(item)?`<span class="inv-usage-est">推定: ${estDailyUseStr(item)}</span>`:'')}
+      </div>
     </div>`;
   }).join('') + '</div>' +
   `<button class="add-item-btn" onclick="openInvEditModal('${esc(curFarmer)}','')">＋ 商品を追加</button>`;
@@ -1191,8 +1247,23 @@ function openInvEditModal(farmerName, product) {
       <input type="text" class="fctl" id="ei-unit" value="${esc(item?item.unit:'')}" placeholder="kg / 袋 / 本"></div>
     <div class="fg"><label class="flabel">現在庫数</label>
       <input type="number" class="fctl" id="ei-stock" value="${item?item.stock:0}" min="0"></div>
-    <div class="fg"><label class="flabel">補充目安数</label>
+    <div class="fg"><label class="flabel">内容量メモ（任意）</label>
+      <input type="text" class="fctl" id="ei-unitnote" value="${esc(item&&item.unitNote?item.unitNote:'')}" placeholder="例: 1袋=20kg　1本=200L"></div>
+    <div class="fg"><label class="flabel">発注点（この数以下で要補充アラート）</label>
       <input type="number" class="fctl" id="ei-target" value="${item?item.target:0}" min="0"></div>
+    <div class="fg"><label class="flabel">目標在庫数（発注後に揃えたい数）</label>
+      <input type="number" class="fctl" id="ei-par" value="${item&&item.par!=null?item.par:''}" min="0" placeholder="例: 4"></div>
+    <hr class="section-sep">
+    <div class="modal-section-lbl">消費ペース設定</div>
+    <div class="fg"><label class="flabel">1日使用量（${item?esc(item.unit):'単位'}/日）</label>
+      <input type="number" class="fctl" id="ei-dailyuse" value="${item&&item.dailyUse!=null?item.dailyUse:''}" min="0" step="0.01" placeholder="例: 2"></div>
+    <div class="fg"><label class="flabel">1頭あたり給与量（g/頭/日）任意</label>
+      <input type="number" class="fctl" id="ei-dosehead" value="${item&&item.dosePerHead!=null?item.dosePerHead:''}" min="0" step="1" placeholder="例: 50">
+      ${(()=>{const est=item?estDailyUseStr(item):null;return est?`<div style="font-size:12px;color:var(--primary);margin-top:4px">→ 推定 ${est}</div>`:'';})()</div>
+    <hr class="section-sep">
+    <div class="modal-section-lbl">使用中の容器</div>
+    <div class="fg"><label class="flabel">使用中の残量（0〜100%）</label>
+      <input type="number" class="fctl" id="ei-inusepct" value="${item&&item.inUsePct!=null?item.inUsePct:''}" min="0" max="100" placeholder="例: 60"></div>
     <button class="modal-ok" onclick="saveInvEdit('${esc(farmerName)}','${esc(product)}')">保存する</button>
     ${item?`<button class="del-modal-btn" onclick="deleteInvItem('${esc(farmerName)}','${esc(product)}')">削除する</button>`:''}`;
   document.getElementById('edit-overlay').classList.add('on');
@@ -1203,14 +1274,23 @@ function saveInvEdit(farmerName, oldProduct) {
   const unit = document.getElementById('ei-unit').value.trim();
   const stock = parseInt(document.getElementById('ei-stock').value) || 0;
   const target = parseInt(document.getElementById('ei-target').value) || 0;
+  const parVal = document.getElementById('ei-par').value;
+  const par = parVal !== '' ? parseInt(parVal) : null;
+  const unitNote = document.getElementById('ei-unitnote').value.trim();
+  const duVal = document.getElementById('ei-dailyuse').value;
+  const dailyUse = duVal !== '' ? parseFloat(duVal) : null;
+  const dhVal = document.getElementById('ei-dosehead').value;
+  const dosePerHead = dhVal !== '' ? parseFloat(dhVal) : null;
+  const ipVal = document.getElementById('ei-inusepct').value;
+  const inUsePct = ipVal !== '' ? parseFloat(ipVal) : null;
   if (!product) { alert('商品名を入力してください'); return; }
   if (!unit) { alert('単位を入力してください'); return; }
   const f = db.farmers.find(x => x.name === farmerName);
   if (oldProduct) {
     const item = db.inventory.find(i => i.farmer === farmerName && i.product === oldProduct);
-    if (item) { item.product = product; item.unit = unit; item.stock = stock; item.target = target; item.lastCheck = todayISO(); }
+    if (item) { item.product = product; item.unit = unit; item.unitNote = unitNote; item.stock = stock; item.target = target; item.par = par; item.dailyUse = dailyUse; item.dosePerHead = dosePerHead; item.inUsePct = inUsePct; item.lastCheck = todayISO(); }
   } else {
-    db.inventory.push({farmer:farmerName, district:f?f.district:'', product, unit, stock, target, lastCheck:todayISO(), nextCheck:''});
+    db.inventory.push({farmer:farmerName, district:f?f.district:'', product, unit, unitNote, stock, target, par, dailyUse, dosePerHead, inUsePct, lastCheck:todayISO(), nextCheck:''});
   }
   saveDB(); updateBadge(); closeEditModal();
   toast(oldProduct ? '商品を更新しました' : '商品を追加しました');
@@ -1226,6 +1306,159 @@ function deleteInvItem(farmerName, product) {
 
 function closeEditModal() { document.getElementById('edit-overlay').classList.remove('on'); }
 function editOverlayClick(e) { if (e.target === document.getElementById('edit-overlay')) closeEditModal(); }
+
+// ═══════════════════════════════════════
+//  ORDER HISTORY
+// ═══════════════════════════════════════
+function renderOrderTab() {
+  const orders = db.orders.filter(o => o.farmer === curFarmer)
+    .sort((a,b) => b.date.localeCompare(a.date));
+  const products = [...new Set(orders.map(o => o.product))];
+
+  let summary = '';
+  if (products.length) {
+    summary = '<div class="sec-hdr">商品別集計</div><div class="ord-summary">' +
+      products.map(p => {
+        const interval = avgOrderInterval(curFarmer, p);
+        const qty = avgOrderQty(curFarmer, p);
+        const next = nextOrderDate(curFarmer, p);
+        return `<div class="ord-summary-item">
+          <div class="ord-product">${esc(p)}</div>
+          <div class="ord-stats">${interval ? `平均間隔: 約${interval}日おき` : ''}${qty ? ` / 平均注文量: ${qty}` : ''}</div>
+          ${next ? `<div class="ord-next">次回予測: ${next}</div>` : ''}
+        </div>`;
+      }).join('') + '</div>';
+  }
+
+  const list = !orders.length
+    ? '<div class="empty"><div class="empty-icon">📦</div><div class="empty-txt">注文履歴なし<br><small style="font-size:12px">下のボタンから手入力できます</small></div></div>'
+    : '<div class="sec-hdr">履歴</div><div class="vis-wrap" style="margin:8px;border-radius:10px;overflow:hidden;background:var(--white);box-shadow:0 1px 4px rgba(0,0,0,.09)">' +
+      orders.map(o => `
+        <div class="vis-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div class="vis-meta">${o.date}</div>
+            <div class="vis-content">${esc(o.product)} <strong>${o.qty}${esc(o.unit)}</strong></div>
+            ${o.memo ? `<div class="vis-memo">${esc(o.memo)}</div>` : ''}
+          </div>
+          <button class="edit-btn" onclick="deleteOrder(${o.id})">削除</button>
+        </div>`).join('') + '</div>';
+
+  return summary + list +
+    `<button class="add-ord-btn" onclick="openOrderModal('${esc(curFarmer)}')">＋ 注文を記録</button>`;
+}
+
+function openOrderModal(farmerName) {
+  const allProducts = [...new Set(db.inventory.map(i => i.product))].sort();
+  document.getElementById('edit-modal-title').textContent = '注文を記録';
+  document.getElementById('edit-modal-body').innerHTML =
+    `<datalist id="op-list">${allProducts.map(p=>`<option value="${esc(p)}">`).join('')}</datalist>
+    <div class="fg"><label class="flabel">商品名</label>
+      <input type="text" class="fctl" id="eo-product" placeholder="商品名" list="op-list" autocomplete="off"
+        oninput="autoFillOrderUnit(this.value,'${esc(farmerName)}')"></div>
+    <div class="fg"><label class="flabel">注文日</label>
+      <input type="date" class="fctl" id="eo-date" value="${todayInput()}"></div>
+    <div class="fg"><label class="flabel">数量</label>
+      <input type="number" class="fctl" id="eo-qty" min="1" placeholder="例: 10"></div>
+    <div class="fg"><label class="flabel">単位</label>
+      <input type="text" class="fctl" id="eo-unit" placeholder="袋 / kg / 本"></div>
+    <div class="fg"><label class="flabel">メモ</label>
+      <input type="text" class="fctl" id="eo-memo" placeholder="自由記入"></div>
+    <button class="modal-ok" onclick="saveOrder('${esc(farmerName)}')">保存する</button>`;
+  document.getElementById('edit-overlay').classList.add('on');
+}
+
+function autoFillOrderUnit(product, farmerName) {
+  const item = db.inventory.find(i => i.farmer === farmerName && i.product === product)
+            || db.inventory.find(i => i.product === product);
+  if (item) document.getElementById('eo-unit').value = item.unit;
+}
+
+function saveOrder(farmerName) {
+  const product = document.getElementById('eo-product').value.trim();
+  const date = document.getElementById('eo-date').value;
+  const qty = parseInt(document.getElementById('eo-qty').value);
+  const unit = document.getElementById('eo-unit').value.trim();
+  const memo = document.getElementById('eo-memo').value.trim();
+  if (!product) { alert('商品名を入力してください'); return; }
+  if (!date) { alert('注文日を入力してください'); return; }
+  if (!qty || qty < 1) { alert('数量を入力してください'); return; }
+  if (!unit) { alert('単位を入力してください'); return; }
+  db.orders.push({id: db.nextId++, farmer: farmerName, product, date: input2disp(date), qty, unit, memo});
+  saveDB(); closeEditModal();
+  toast('注文を記録しました');
+  renderDetail();
+}
+
+function deleteOrder(id) {
+  if (!confirm('この注文記録を削除しますか？')) return;
+  db.orders = db.orders.filter(o => o.id !== id);
+  saveDB(); renderDetail();
+  toast('削除しました');
+}
+
+function avgOrderInterval(farmer, product) {
+  const orders = db.orders.filter(o => o.farmer === farmer && o.product === product)
+    .sort((a,b) => a.date.localeCompare(b.date));
+  if (orders.length < 2) return null;
+  let total = 0;
+  for (let i = 1; i < orders.length; i++) total += dateDiff(orders[i-1].date, orders[i].date);
+  return Math.round(total / (orders.length - 1));
+}
+
+function avgOrderQty(farmer, product) {
+  const orders = db.orders.filter(o => o.farmer === farmer && o.product === product);
+  if (!orders.length) return null;
+  const sum = orders.reduce((s,o) => s + o.qty, 0);
+  const item = db.inventory.find(i => i.farmer === farmer && i.product === product);
+  const unit = item ? item.unit : orders[0].unit;
+  return `${Math.round(sum / orders.length)}${unit}`;
+}
+
+function nextOrderDate(farmer, product) {
+  const orders = db.orders.filter(o => o.farmer === farmer && o.product === product)
+    .sort((a,b) => b.date.localeCompare(a.date));
+  if (!orders.length) return null;
+  const interval = avgOrderInterval(farmer, product);
+  if (!interval) return null;
+  const p = orders[0].date.split('/').map(Number);
+  const d = new Date(p[0], p[1]-1, p[2]);
+  d.setDate(d.getDate() + interval);
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ═══════════════════════════════════════
+//  EFFECTIVE STOCK & DAILY CONSUMPTION
+// ═══════════════════════════════════════
+function effectiveStock(item) {
+  if (item.inUsePct == null) return item.stock;
+  return item.stock + item.inUsePct / 100;
+}
+
+function estimatedDailyUse(item) {
+  if (!item.dosePerHead) return null;
+  const farmer = db.farmers.find(f => f.name === item.farmer);
+  if (!farmer || !farmer.cattle) return null;
+  const dailyG = item.dosePerHead * farmer.cattle;
+  if (item.unit === 'kg') return dailyG / 1000;
+  return null;
+}
+
+function estDailyUseStr(item) {
+  const est = estimatedDailyUse(item);
+  if (!est) return null;
+  const farmer = db.farmers.find(f => f.name === item.farmer);
+  return `${farmer.cattle}頭 × ${item.dosePerHead}g = ${est.toFixed(2)}${item.unit}/日`;
+}
+
+function daysRemaining(item) {
+  const eff = effectiveStock(item);
+  if (item.dailyUse > 0) return Math.floor(eff / item.dailyUse);
+  const est = estimatedDailyUse(item);
+  if (est > 0) return Math.floor(eff / est);
+  const rate = dailyConsumption(item.farmer, item.product);
+  if (!rate) return null;
+  return Math.floor(eff / rate);
+}
 
 // ═══════════════════════════════════════
 //  STOCK LOG & CONSUMPTION
@@ -1261,12 +1494,6 @@ function dailyConsumption(farmer, product) {
   const days = dateDiff(logs[0].date, logs[logs.length-1].date);
   if (days <= 0 || totalDecrease <= 0) return null;
   return totalDecrease / days;
-}
-
-function daysRemaining(item) {
-  const rate = dailyConsumption(item.farmer, item.product);
-  if (!rate) return null;
-  return Math.floor(item.stock / rate);
 }
 
 function daysBadge(days) {
@@ -1321,7 +1548,8 @@ function renderTodayCard(f, overdueOnly) {
     .sort((a,b) => b.date.localeCompare(a.date))[0];
 
   const rows = items.map(item => {
-    const carry = isAlert(item) ? Math.max(0, item.target * 2 - item.stock) : 0;
+    const eff = effectiveStock(item);
+    const carry = isAlert(item) ? (item.par != null ? Math.max(0, item.par - eff) : Math.max(0, item.target * 2 - eff)) : 0;
     const dr = daysRemaining(item);
     return `<div class="today-inv-row">
       <span class="today-inv-name">${esc(item.product)}</span>
