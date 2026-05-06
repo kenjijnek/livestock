@@ -422,8 +422,10 @@ textarea.fctl { height: 80px; resize: none; }
 <div id="hdr" class="hdr">
   <button class="hdr-back" id="back-btn" onclick="goBack()">‹</button>
   <span class="hdr-title" id="hdr-title">畜産在庫管理</span>
+  <button class="hdr-export" onclick="triggerImport()">読込み</button>
   <button class="hdr-export" onclick="exportData()">書出し</button>
 </div>
+<input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(this)">
 
 <div class="main">
   <!-- 農家一覧 -->
@@ -1609,6 +1611,36 @@ function exportData() {
   a.href = URL.createObjectURL(blob);
   a.download = 'livestock_backup_' + todayISO().replace(/\//g,'-') + '.json';
   a.click();
+}
+
+function triggerImport() {
+  document.getElementById('import-input').value = '';
+  document.getElementById('import-input').click();
+}
+
+function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.farmers || !data.inventory) {
+        alert('ファイルの形式が正しくありません');
+        return;
+      }
+      if (!confirm('現在のデータをすべて上書きしますか？')) return;
+      if (!data.stockLog) data.stockLog = [];
+      if (!data.orders) data.orders = [];
+      db = data;
+      saveDB();
+      toast('データを読み込みました');
+      goPage('farmers');
+    } catch(err) {
+      alert('ファイルの読み込みに失敗しました');
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ═══════════════════════════════════════
