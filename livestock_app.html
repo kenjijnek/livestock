@@ -422,10 +422,10 @@ textarea.fctl { height: 80px; resize: none; }
 <div id="hdr" class="hdr">
   <button class="hdr-back" id="back-btn" onclick="goBack()">‹</button>
   <span class="hdr-title" id="hdr-title">畜産在庫管理</span>
-  <button class="hdr-export" onclick="triggerImport()">読込み</button>
+  <label for="import-input" class="hdr-export" style="cursor:pointer;-webkit-user-select:none">読込み</label>
+  <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(this)">
   <button class="hdr-export" onclick="exportData()">書出し</button>
 </div>
-<input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(this)">
 
 <div class="main">
   <!-- 農家一覧 -->
