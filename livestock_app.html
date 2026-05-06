@@ -1540,7 +1540,9 @@ function effectiveStock(item) {
 
 function parseKgPerUnit(unitNote) {
   if (!unitNote) return null;
-  const m = unitNote.match(/(\d+(?:\.\d+)?)\s*kg/i);
+  const n = unitNote.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+                    .replace(/[ａ-ｚＡ-Ｚ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  const m = n.match(/(\d+(?:\.\d+)?)\s*kg/i);
   return m ? parseFloat(m[1]) : null;
 }
 
