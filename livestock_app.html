@@ -205,6 +205,9 @@ body {
 .vis-content { font-size: 15px; font-weight: 500; }
 .vis-farmer { color: var(--primary); }
 .vis-memo { font-size: 13px; color: var(--text-s); margin-top: 3px; }
+.vis-stocks { display: flex; flex-wrap: wrap; gap: 5px; margin: 5px 0 4px; }
+.vis-stock-chip { font-size: 12px; background: var(--bg-s); border-radius: 6px; padding: 2px 8px; color: var(--text-s); }
+.vis-stock-chip strong { color: var(--text); }
 .vis-next { font-size: 12px; color: var(--primary); margin-top: 3px; }
 
 /* ── FAB ── */
@@ -487,11 +490,17 @@ textarea.fctl { height: 80px; resize: none; }
     <div class="modal-body">
       <div class="fg">
         <label class="flabel">農家名</label>
-        <select class="fctl" id="v-farmer"></select>
+        <select class="fctl" id="v-farmer" onchange="renderStockInputs(this.value)"></select>
       </div>
       <div class="fg">
         <label class="flabel">訪問日</label>
         <input type="date" class="fctl" id="v-date">
+      </div>
+      <div id="v-stocks-section" style="display:none">
+        <hr class="section-sep">
+        <div class="modal-section-lbl">在庫確認数（訪問時の実数）</div>
+        <div id="v-stocks-wrap"></div>
+        <hr class="section-sep">
       </div>
       <div class="fg">
         <label class="flabel">在庫確認</label>
@@ -922,8 +931,7 @@ function renderFarmers() {
       const al = isAlert(item);
       return `<div class="farmer-inv-row${al?' alert-row':''}">
         <span class="farmer-inv-name">${esc(item.product)}</span>
-        <span class="bdg ${al?'bdg-r':'bdg-g'}" style="font-size:10px;padding:1px 6px">${al?'要補充':'適正'}</span>
-        <span class="farmer-inv-stock">${item.stock}/${item.target}${item.unit}${item.unitNote?' ('+esc(item.unitNote)+')':''}</span>
+        <span class="farmer-inv-stock" style="${al?'color:var(--danger);font-weight:700':''}"><strong>${item.stock}</strong>${item.unit}</span>
       </div>`;
     }).join('');
     return `<div class="card">
@@ -932,7 +940,7 @@ function renderFarmers() {
           <div class="card-title">
             ${esc(f.name)}
             ${f.rel==='重要'?'<span class="bdg bdg-b">重要</span>':''}
-            ${ac>0?`<span class="bdg bdg-r">要補充 ${ac}</span>`:'<span class="bdg bdg-g">良好</span>'}
+            ${ac>0?`<span class="bdg bdg-r">要補充 ${ac}</span>`:''}
           </div>
           <div class="card-sub">${f.district} · ${f.cattle}頭${lv?' · 最終訪問: '+lv.date:''}</div>
         </div>
@@ -1027,13 +1035,21 @@ function renderVisTab() {
     .sort((a,b) => b.date.localeCompare(a.date));
   const inner = !visits.length
     ? '<div class="empty"><div class="empty-icon">📋</div><div class="empty-txt">訪問記録なし</div></div>'
-    : '<div class="vis-wrap">' + visits.map(v => `
+    : '<div class="vis-wrap">' + visits.map(v => {
+      const stocksHtml = (v.stocks && v.stocks.length)
+        ? '<div class="vis-stocks">' + v.stocks.map(s =>
+            `<span class="vis-stock-chip">${esc(s.product)}: <strong>${s.stock}</strong>${esc(s.unit)}</span>`
+          ).join('') + '</div>'
+        : '';
+      return `
       <div class="vis-item">
         <div class="vis-meta">${v.date} · ${v.check} · ${v.person}</div>
+        ${stocksHtml}
         <div class="vis-content">${esc(v.content)}</div>
         ${v.memo?`<div class="vis-memo">${esc(v.memo)}</div>`:''}
         ${v.next?`<div class="vis-next">次回予定: ${v.next}</div>`:''}
-      </div>`).join('') + '</div>';
+      </div>`;
+    }).join('') + '</div>';
 
   return inner + `<button class="add-vis-btn" onclick="openVisitModal('${esc(curFarmer)}')">＋ 訪問記録を追加</button>`;
 }
@@ -1166,15 +1182,50 @@ function openVisitModal(preselect) {
 function closeModal() { document.getElementById('overlay').classList.remove('on'); }
 function overlayClick(e) { if (e.target === document.getElementById('overlay')) closeModal(); }
 
+function renderStockInputs(farmerName) {
+  const sec = document.getElementById('v-stocks-section');
+  const wrap = document.getElementById('v-stocks-wrap');
+  if (!farmerName) { sec.style.display = 'none'; wrap.innerHTML = ''; return; }
+  const items = db.inventory.filter(i => i.farmer === farmerName);
+  if (!items.length) { sec.style.display = 'none'; wrap.innerHTML = ''; return; }
+  wrap.innerHTML = items.map(item => `
+    <div class="fg" style="margin-bottom:8px">
+      <label class="flabel">${esc(item.product)}</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="number" class="fctl" id="vs-${esc(item.product)}" min="0" step="0.1" placeholder="現在の在庫数" style="flex:1">
+        <span style="font-size:13px;color:var(--text-s);white-space:nowrap">${esc(item.unit)}</span>
+      </div>
+    </div>`).join('');
+  sec.style.display = '';
+}
+
 function saveVisit() {
   const fn = document.getElementById('v-farmer').value;
   if (!fn) { alert('農家を選択してください'); return; }
   const d = document.getElementById('v-date').value;
   if (!d) { alert('訪問日を入力してください'); return; }
   const f = db.farmers.find(x => x.name === fn);
+  const visitDate = input2disp(d);
+
+  // Collect stock snapshots from inputs
+  const items = db.inventory.filter(i => i.farmer === fn);
+  const stocks = [];
+  items.forEach(item => {
+    const el = document.getElementById('vs-' + item.product);
+    if (el && el.value !== '') {
+      const val = parseFloat(el.value);
+      if (!isNaN(val) && val >= 0) {
+        stocks.push({ product: item.product, unit: item.unit, stock: val });
+        // Update actual inventory stock
+        item.stock = val;
+        item.lastCheck = d;
+      }
+    }
+  });
+
   db.visits.unshift({
     id: db.nextId++,
-    date: input2disp(d),
+    date: visitDate,
     farmer: fn,
     district: f ? f.district : '',
     check: document.getElementById('v-check').value,
@@ -1182,12 +1233,14 @@ function saveVisit() {
     memo: document.getElementById('v-memo').value.trim(),
     next: input2disp(document.getElementById('v-next').value),
     person: document.getElementById('v-person').value.trim(),
+    stocks: stocks,
   });
   saveDB();
   closeModal();
   toast('訪問記録を保存しました');
   if (curPage === 'visits') renderVisits();
   if (curPage === 'detail' && curFarmer === fn) renderDetail();
+  if (curPage === 'farmers') renderFarmers();
 }
 
 // ═══════════════════════════════════════
@@ -1522,7 +1575,37 @@ function dateDiff(d1, d2) {
   return Math.round((p(d2) - p(d1)) / 86400000);
 }
 
+// Calculate daily consumption from visit snapshots + order history
+function calcConsumptionFromVisits(farmer, product) {
+  const snapshots = db.visits
+    .filter(v => v.farmer === farmer && v.stocks && v.stocks.some(s => s.product === product))
+    .map(v => ({ date: v.date, stock: v.stocks.find(s => s.product === product).stock }))
+    .sort((a,b) => a.date.localeCompare(b.date));
+  if (snapshots.length < 2) return null;
+
+  let totalConsumption = 0;
+  let totalDays = 0;
+  for (let i = 1; i < snapshots.length; i++) {
+    const prev = snapshots[i-1];
+    const curr = snapshots[i];
+    const days = dateDiff(prev.date, curr.date);
+    if (days <= 0) continue;
+    // Orders between these two visits
+    const ordersQty = (db.orders || [])
+      .filter(o => o.farmer === farmer && o.product === product && o.date > prev.date && o.date <= curr.date)
+      .reduce((sum, o) => sum + (o.qty || 0), 0);
+    const consumed = prev.stock + ordersQty - curr.stock;
+    if (consumed > 0) { totalConsumption += consumed; totalDays += days; }
+  }
+  if (totalDays <= 0 || totalConsumption <= 0) return null;
+  return totalConsumption / totalDays;
+}
+
 function dailyConsumption(farmer, product) {
+  // Prefer visit-snapshot method
+  const fromVisits = calcConsumptionFromVisits(farmer, product);
+  if (fromVisits) return fromVisits;
+
   if (!db.stockLog) return null;
   const logs = db.stockLog
     .filter(e => e.farmer === farmer && e.product === product)
