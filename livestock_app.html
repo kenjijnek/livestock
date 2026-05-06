@@ -1313,6 +1313,12 @@ function deleteFarmer(name) {
 function openInvEditModal(farmerName, product) {
   const item = product ? db.inventory.find(i => i.farmer === farmerName && i.product === product) : null;
   const estStr = item ? estDailyUseStr(item) : null;
+  const kgPU = parseKgPerUnit(item && item.unitNote ? item.unitNote : '');
+  const duUnit = kgPU ? 'kg/日' : ((item ? item.unit : '単位') + '/日');
+  const duVal0 = kgPU
+    ? (item && item.dailyUse != null ? +(item.dailyUse * kgPU).toFixed(3) : '')
+    : (item && item.dailyUse != null ? item.dailyUse : '');
+  const duHint = kgPU ? `<div style="font-size:12px;color:var(--text-s);margin-top:4px">1${item?item.unit:'単位'}=${kgPU}kg で自動換算して保存します</div>` : '';
   document.getElementById('edit-modal-title').textContent = item ? '商品を編集' : '商品を追加';
   document.getElementById('edit-modal-body').innerHTML = `
     <div class="fg"><label class="flabel">商品名</label>
@@ -1332,20 +1338,10 @@ function openInvEditModal(farmerName, product) {
       <input type="number" class="fctl" id="ei-par" value="${item&&item.par!=null?item.par:''}" min="0" placeholder="例: 4"></div>
     <hr class="section-sep">
     <div class="modal-section-lbl">消費ペース設定</div>
-    ${(()=>{
-      const kgPU = parseKgPerUnit(item && item.unitNote ? item.unitNote : '');
-      const unit = item ? item.unit : '単位';
-      if (kgPU) {
-        const kgVal = item && item.dailyUse != null ? +(item.dailyUse * kgPU).toFixed(3) : '';
-        return `<div class="fg"><label class="flabel">1日使用量（kg/日）</label>
-          <input type="number" class="fctl" id="ei-dailyuse" value="${kgVal}" min="0" step="0.1" placeholder="例: 2">
-          <div style="font-size:12px;color:var(--text-s);margin-top:4px">1${esc(unit)}=${kgPU}kg で自動換算して保存します</div></div>
-        <input type="hidden" id="ei-kgperunit" value="${kgPU}">`;
-      }
-      return `<div class="fg"><label class="flabel">1日使用量（${esc(unit)}/日）</label>
-        <input type="number" class="fctl" id="ei-dailyuse" value="${item&&item.dailyUse!=null?item.dailyUse:''}" min="0" step="0.01" placeholder="例: 2"></div>
-      <input type="hidden" id="ei-kgperunit" value="">`;
-    })()}
+    <div class="fg"><label class="flabel">1日使用量（${duUnit}）</label>
+      <input type="number" class="fctl" id="ei-dailyuse" value="${duVal0}" min="0" step="0.01" placeholder="例: 2">
+      ${duHint}</div>
+    <input type="hidden" id="ei-kgperunit" value="${kgPU || ''}">
     <div class="fg"><label class="flabel">1頭あたり給与量（g/頭/日）任意</label>
       <input type="number" class="fctl" id="ei-dosehead" value="${item&&item.dosePerHead!=null?item.dosePerHead:''}" min="0" step="1" placeholder="例: 50">
       ${estStr?`<div style="font-size:12px;color:var(--primary);margin-top:4px">→ 推定 ${estStr}</div>`:''}</div>
@@ -1544,8 +1540,7 @@ function effectiveStock(item) {
 
 function parseKgPerUnit(unitNote) {
   if (!unitNote) return null;
-  const m = unitNote.match(/1[^=＝]+=\s*(\d+(?:\.\d+)?)\s*kg/i)
-         || unitNote.match(/1[^=＝]+＝\s*(\d+(?:\.\d+)?)\s*kg/i);
+  const m = unitNote.match(/(\d+(?:\.\d+)?)\s*kg/i);
   return m ? parseFloat(m[1]) : null;
 }
 
