@@ -1544,7 +1544,8 @@ function effectiveStock(item) {
 
 function parseKgPerUnit(unitNote) {
   if (!unitNote) return null;
-  const m = unitNote.match(/1[^=]+=\s*(\d+(?:\.\d+)?)\s*kg/i);
+  const m = unitNote.match(/1[^=＝]+=\s*(\d+(?:\.\d+)?)\s*kg/i)
+         || unitNote.match(/1[^=＝]+＝\s*(\d+(?:\.\d+)?)\s*kg/i);
   return m ? parseFloat(m[1]) : null;
 }
 
