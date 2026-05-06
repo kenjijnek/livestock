@@ -422,8 +422,7 @@ textarea.fctl { height: 80px; resize: none; }
 <div id="hdr" class="hdr">
   <button class="hdr-back" id="back-btn" onclick="goBack()">‹</button>
   <span class="hdr-title" id="hdr-title">畜産在庫管理</span>
-  <label for="import-input" class="hdr-export" style="cursor:pointer;-webkit-user-select:none">読込み</label>
-  <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(this)">
+  <button class="hdr-export" onclick="openImportModal()">読込み</button>
   <button class="hdr-export" onclick="exportData()">書出し</button>
 </div>
 
@@ -539,6 +538,24 @@ textarea.fctl { height: 80px; resize: none; }
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Import Modal -->
+<div class="overlay" id="import-overlay" onclick="if(event.target===this)closeImportModal()">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">データを読込み</span>
+      <button class="modal-x" onclick="closeImportModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-s);margin-bottom:12px">ファイルアプリでJSONファイルを長押し→「共有」→「テキストをコピー」してから下に貼り付けてください。</p>
+      <div class="fg">
+        <label class="flabel">JSONデータ</label>
+        <textarea class="fctl" id="import-textarea" style="height:160px;font-size:12px;font-family:monospace" placeholder="ここに貼り付け…"></textarea>
+      </div>
+      <button class="modal-ok" onclick="doImport()">読込み実行</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ═══════════════════════════════════════
@@ -1613,34 +1630,30 @@ function exportData() {
   a.click();
 }
 
-function triggerImport() {
-  document.getElementById('import-input').value = '';
-  document.getElementById('import-input').click();
+function openImportModal() {
+  document.getElementById('import-textarea').value = '';
+  document.getElementById('import-overlay').classList.add('on');
 }
-
-function importData(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!data.farmers || !data.inventory) {
-        alert('ファイルの形式が正しくありません');
-        return;
-      }
-      if (!confirm('現在のデータをすべて上書きしますか？')) return;
-      if (!data.stockLog) data.stockLog = [];
-      if (!data.orders) data.orders = [];
-      db = data;
-      saveDB();
-      toast('データを読み込みました');
-      goPage('farmers');
-    } catch(err) {
-      alert('ファイルの読み込みに失敗しました');
-    }
-  };
-  reader.readAsText(file);
+function closeImportModal() {
+  document.getElementById('import-overlay').classList.remove('on');
+}
+function doImport() {
+  const text = document.getElementById('import-textarea').value.trim();
+  if (!text) { alert('データを貼り付けてください'); return; }
+  try {
+    const data = JSON.parse(text);
+    if (!data.farmers || !data.inventory) { alert('ファイルの形式が正しくありません'); return; }
+    if (!confirm('現在のデータをすべて上書きしますか？')) return;
+    if (!data.stockLog) data.stockLog = [];
+    if (!data.orders) data.orders = [];
+    db = data;
+    saveDB();
+    closeImportModal();
+    toast('データを読み込みました');
+    goPage('farmers');
+  } catch(err) {
+    alert('データの読み込みに失敗しました。正しいJSONを貼り付けてください');
+  }
 }
 
 // ═══════════════════════════════════════
