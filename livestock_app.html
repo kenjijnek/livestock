@@ -929,9 +929,11 @@ function renderFarmers() {
       .sort((a,b) => (isAlert(b)?1:0)-(isAlert(a)?1:0) || a.product.localeCompare(b.product));
     const invRows = items.map(item => {
       const al = isAlert(item);
+      const dr = daysRemaining(item);
       return `<div class="farmer-inv-row${al?' alert-row':''}">
         <span class="farmer-inv-name">${esc(item.product)}</span>
         <span class="farmer-inv-stock" style="${al?'color:var(--danger);font-weight:700':''}"><strong>${item.stock}</strong>${item.unit}</span>
+        ${dr !== null ? daysBadge(dr) : ''}
       </div>`;
     }).join('');
     return `<div class="card">
@@ -1177,6 +1179,7 @@ function openVisitModal(preselect) {
   document.getElementById('v-next').value = '';
   document.getElementById('v-memo').value = '';
   document.getElementById('v-person').value = '';
+  renderStockInputs(preselect || '');
   document.getElementById('overlay').classList.add('on');
 }
 function closeModal() { document.getElementById('overlay').classList.remove('on'); }
