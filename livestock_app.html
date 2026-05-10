@@ -1474,31 +1474,37 @@ function renderOrderTab() {
             <div class="vis-content">${esc(o.product)} <strong>${o.qty}${esc(o.unit)}</strong></div>
             ${o.memo ? `<div class="vis-memo">${esc(o.memo)}</div>` : ''}
           </div>
-          <button class="edit-btn" onclick="deleteOrder(${o.id})">削除</button>
+          <div style="display:flex;gap:4px">
+            <button class="edit-btn" onclick="openOrderModal('${esc(curFarmer)}',${o.id})">編集</button>
+            <button class="edit-btn" style="color:var(--danger)" onclick="deleteOrder(${o.id})">削除</button>
+          </div>
         </div>`).join('') + '</div>';
 
   return summary + list +
     `<button class="add-ord-btn" onclick="openOrderModal('${esc(curFarmer)}')">＋ 注文を記録</button>`;
 }
 
-function openOrderModal(farmerName) {
-  document.getElementById('edit-modal-title').textContent = '注文を記録';
+let editingOrderId = null;
+function openOrderModal(farmerName, orderId) {
+  editingOrderId = orderId != null ? orderId : null;
+  const o = orderId != null ? db.orders.find(x => x.id === orderId) : null;
+  document.getElementById('edit-modal-title').textContent = o ? '注文を修正' : '注文を記録';
   document.getElementById('edit-modal-body').innerHTML =
     `<div class="fg"><label class="flabel">商品名</label>
-      <input type="text" class="fctl" id="eo-product" placeholder="商品名" autocomplete="off"
+      <input type="text" class="fctl" id="eo-product" value="${esc(o?o.product:'')}" placeholder="商品名" autocomplete="off"
         oninput="showSuggest('eo-product','eo-suggest','${esc(farmerName)}'); autoFillOrderUnit(this.value,'${esc(farmerName)}')"
         onfocus="showSuggest('eo-product','eo-suggest','${esc(farmerName)}')">
       <div id="eo-suggest" class="suggest-list" style="display:none"></div></div>
     <div class="fg"><label class="flabel">注文日</label>
-      <input type="date" class="fctl" id="eo-date" value="${todayInput()}"></div>
+      <input type="date" class="fctl" id="eo-date" value="${o ? disp2input(o.date) : todayInput()}"></div>
     <div class="fg"><label class="flabel">納品予定日</label>
-      <input type="date" class="fctl" id="eo-delivery"></div>
+      <input type="date" class="fctl" id="eo-delivery" value="${o && o.deliveryDate ? disp2input(o.deliveryDate) : ''}"></div>
     <div class="fg"><label class="flabel">数量</label>
-      <input type="number" class="fctl" id="eo-qty" min="1" placeholder="例: 10"></div>
+      <input type="number" class="fctl" id="eo-qty" min="1" placeholder="例: 10" value="${o ? o.qty : ''}"></div>
     <div class="fg"><label class="flabel">単位</label>
-      <input type="text" class="fctl" id="eo-unit" placeholder="袋 / kg / 本"></div>
+      <input type="text" class="fctl" id="eo-unit" placeholder="袋 / kg / 本" value="${esc(o?o.unit:'')}"></div>
     <div class="fg"><label class="flabel">メモ</label>
-      <input type="text" class="fctl" id="eo-memo" placeholder="自由記入"></div>
+      <input type="text" class="fctl" id="eo-memo" placeholder="自由記入" value="${esc(o?o.memo:'')}"></div>
     <button class="modal-ok" onclick="saveOrder('${esc(farmerName)}')">保存する</button>`;
   document.getElementById('edit-overlay').classList.add('on');
 }
@@ -1520,9 +1526,16 @@ function saveOrder(farmerName) {
   if (!qty || qty < 1) { alert('数量を入力してください'); return; }
   if (!unit) { alert('単位を入力してください'); return; }
   const delivery = document.getElementById('eo-delivery').value;
-  db.orders.push({id: db.nextId++, farmer: farmerName, product, date: input2disp(date), deliveryDate: input2disp(delivery), qty, unit, memo});
+  const record = {farmer: farmerName, product, date: input2disp(date), deliveryDate: input2disp(delivery), qty, unit, memo};
+  if (editingOrderId != null) {
+    const idx = db.orders.findIndex(x => x.id === editingOrderId);
+    if (idx !== -1) db.orders[idx] = { ...db.orders[idx], ...record };
+    editingOrderId = null;
+  } else {
+    db.orders.push({id: db.nextId++, ...record});
+  }
   saveDB(); closeEditModal();
-  toast('注文を記録しました');
+  toast('注文を保存しました');
   renderDetail();
 }
 
