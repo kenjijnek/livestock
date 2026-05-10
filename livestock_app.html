@@ -1045,7 +1045,11 @@ function renderVisTab() {
         : '';
       return `
       <div class="vis-item">
-        <div class="vis-meta">${v.date} · ${v.check} · ${v.person}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="vis-meta" style="flex:1">${v.date} · ${v.check} · ${v.person}</div>
+          <button class="edit-btn" onclick="openVisitModal('${esc(curFarmer)}',${v.id})">編集</button>
+          <button class="edit-btn" style="color:var(--danger)" onclick="deleteVisit(${v.id})">削除</button>
+        </div>
         ${stocksHtml}
         <div class="vis-content">${esc(v.content)}</div>
         ${v.memo?`<div class="vis-memo">${esc(v.memo)}</div>`:''}
@@ -1171,34 +1175,43 @@ function setVF(d) { vFilter = d; renderVisits(); }
 // ═══════════════════════════════════════
 //  VISIT MODAL
 // ═══════════════════════════════════════
-function openVisitModal(preselect) {
+let editingVisitId = null;
+function openVisitModal(preselect, visitId) {
+  editingVisitId = visitId != null ? visitId : null;
+  const v = visitId != null ? db.visits.find(x => x.id === visitId) : null;
+  const farmerName = v ? v.farmer : (preselect || '');
   const sel = document.getElementById('v-farmer');
   sel.innerHTML = '<option value="">選択…</option>' +
-    db.farmers.map(f => `<option value="${esc(f.name)}"${f.name===(preselect||'')?' selected':''}>${esc(f.name)}（${f.district}）</option>`).join('');
-  document.getElementById('v-date').value = todayInput();
-  document.getElementById('v-next').value = '';
-  document.getElementById('v-memo').value = '';
-  document.getElementById('v-person').value = '';
-  renderStockInputs(preselect || '');
+    db.farmers.map(f => `<option value="${esc(f.name)}"${f.name===farmerName?' selected':''}>${esc(f.name)}（${f.district}）</option>`).join('');
+  sel.disabled = !!v;
+  document.getElementById('v-date').value = v ? disp2input(v.date) : todayInput();
+  document.getElementById('v-check').value = v ? v.check : '完了';
+  document.getElementById('v-content').value = v ? v.content : '定期訪問';
+  document.getElementById('v-next').value = v && v.next ? disp2input(v.next) : '';
+  document.getElementById('v-memo').value = v ? (v.memo || '') : '';
+  document.getElementById('v-person').value = v ? (v.person || '') : '';
+  renderStockInputs(farmerName, v ? v.stocks : null);
   document.getElementById('overlay').classList.add('on');
 }
 function closeModal() { document.getElementById('overlay').classList.remove('on'); }
 function overlayClick(e) { if (e.target === document.getElementById('overlay')) closeModal(); }
 
-function renderStockInputs(farmerName) {
+function renderStockInputs(farmerName, existingStocks) {
   const sec = document.getElementById('v-stocks-section');
   const wrap = document.getElementById('v-stocks-wrap');
   if (!farmerName) { sec.style.display = 'none'; wrap.innerHTML = ''; return; }
   const items = db.inventory.filter(i => i.farmer === farmerName);
   if (!items.length) { sec.style.display = 'none'; wrap.innerHTML = ''; return; }
-  wrap.innerHTML = items.map(item => `
-    <div class="fg" style="margin-bottom:8px">
+  wrap.innerHTML = items.map(item => {
+    const prev = existingStocks ? existingStocks.find(s => s.product === item.product) : null;
+    return `<div class="fg" style="margin-bottom:8px">
       <label class="flabel">${esc(item.product)}</label>
       <div style="display:flex;align-items:center;gap:8px">
-        <input type="number" class="fctl" id="vs-${esc(item.product)}" min="0" step="0.1" placeholder="現在の在庫数" style="flex:1">
+        <input type="number" class="fctl" id="vs-${esc(item.product)}" min="0" step="0.1" placeholder="現在の在庫数" value="${prev != null ? prev.stock : ''}" style="flex:1">
         <span style="font-size:13px;color:var(--text-s);white-space:nowrap">${esc(item.unit)}</span>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   sec.style.display = '';
 }
 
@@ -1210,7 +1223,6 @@ function saveVisit() {
   const f = db.farmers.find(x => x.name === fn);
   const visitDate = input2disp(d);
 
-  // Collect stock snapshots from inputs
   const items = db.inventory.filter(i => i.farmer === fn);
   const stocks = [];
   items.forEach(item => {
@@ -1219,15 +1231,13 @@ function saveVisit() {
       const val = parseFloat(el.value);
       if (!isNaN(val) && val >= 0) {
         stocks.push({ product: item.product, unit: item.unit, stock: val });
-        // Update actual inventory stock
         item.stock = val;
         item.lastCheck = d;
       }
     }
   });
 
-  db.visits.unshift({
-    id: db.nextId++,
+  const record = {
     date: visitDate,
     farmer: fn,
     district: f ? f.district : '',
@@ -1237,13 +1247,30 @@ function saveVisit() {
     next: input2disp(document.getElementById('v-next').value),
     person: document.getElementById('v-person').value.trim(),
     stocks: stocks,
-  });
+  };
+
+  if (editingVisitId != null) {
+    const idx = db.visits.findIndex(x => x.id === editingVisitId);
+    if (idx !== -1) db.visits[idx] = { ...db.visits[idx], ...record };
+  } else {
+    db.visits.unshift({ id: db.nextId++, ...record });
+  }
+  editingVisitId = null;
   saveDB();
   closeModal();
   toast('訪問記録を保存しました');
   if (curPage === 'visits') renderVisits();
   if (curPage === 'detail' && curFarmer === fn) renderDetail();
   if (curPage === 'farmers') renderFarmers();
+}
+
+function deleteVisit(id) {
+  if (!confirm('この訪問記録を削除しますか？')) return;
+  db.visits = db.visits.filter(v => v.id !== id);
+  saveDB();
+  toast('削除しました');
+  if (curPage === 'visits') renderVisits();
+  if (curPage === 'detail') renderDetail();
 }
 
 // ═══════════════════════════════════════
