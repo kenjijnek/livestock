@@ -1527,16 +1527,24 @@ function saveOrder(farmerName) {
   if (!unit) { alert('単位を入力してください'); return; }
   const delivery = document.getElementById('eo-delivery').value;
   const record = {farmer: farmerName, product, date: input2disp(date), deliveryDate: input2disp(delivery), qty, unit, memo};
+  const invItem = db.inventory.find(i => i.farmer === farmerName && i.product === product);
   if (editingOrderId != null) {
     const idx = db.orders.findIndex(x => x.id === editingOrderId);
-    if (idx !== -1) db.orders[idx] = { ...db.orders[idx], ...record };
+    if (idx !== -1) {
+      const oldQty = db.orders[idx].qty || 0;
+      const diff = qty - oldQty;
+      if (invItem && diff !== 0) invItem.stock = Math.max(0, invItem.stock + diff);
+      db.orders[idx] = { ...db.orders[idx], ...record };
+    }
     editingOrderId = null;
   } else {
     db.orders.push({id: db.nextId++, ...record});
+    if (invItem) invItem.stock = invItem.stock + qty;
   }
   saveDB(); closeEditModal();
   toast('注文を保存しました');
   renderDetail();
+  if (curPage === 'farmers') renderFarmers();
 }
 
 function deleteOrder(id) {
