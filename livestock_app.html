@@ -1470,7 +1470,7 @@ function renderOrderTab() {
       orders.map(o => `
         <div class="vis-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
           <div style="flex:1;min-width:0">
-            <div class="vis-meta">${o.date}</div>
+            <div class="vis-meta">${o.date}${o.deliveryDate ? ` → 納品予定: ${o.deliveryDate}` : ''}</div>
             <div class="vis-content">${esc(o.product)} <strong>${o.qty}${esc(o.unit)}</strong></div>
             ${o.memo ? `<div class="vis-memo">${esc(o.memo)}</div>` : ''}
           </div>
@@ -1491,6 +1491,8 @@ function openOrderModal(farmerName) {
       <div id="eo-suggest" class="suggest-list" style="display:none"></div></div>
     <div class="fg"><label class="flabel">注文日</label>
       <input type="date" class="fctl" id="eo-date" value="${todayInput()}"></div>
+    <div class="fg"><label class="flabel">納品予定日</label>
+      <input type="date" class="fctl" id="eo-delivery"></div>
     <div class="fg"><label class="flabel">数量</label>
       <input type="number" class="fctl" id="eo-qty" min="1" placeholder="例: 10"></div>
     <div class="fg"><label class="flabel">単位</label>
@@ -1517,7 +1519,8 @@ function saveOrder(farmerName) {
   if (!date) { alert('注文日を入力してください'); return; }
   if (!qty || qty < 1) { alert('数量を入力してください'); return; }
   if (!unit) { alert('単位を入力してください'); return; }
-  db.orders.push({id: db.nextId++, farmer: farmerName, product, date: input2disp(date), qty, unit, memo});
+  const delivery = document.getElementById('eo-delivery').value;
+  db.orders.push({id: db.nextId++, farmer: farmerName, product, date: input2disp(date), deliveryDate: input2disp(delivery), qty, unit, memo});
   saveDB(); closeEditModal();
   toast('注文を記録しました');
   renderDetail();
