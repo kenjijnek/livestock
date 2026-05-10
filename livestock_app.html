@@ -1709,13 +1709,20 @@ function renderToday() {
   const alertFarmers = db.farmers.filter(f => farmerAlertCnt(f.name) > 0);
   const alertNames = new Set(alertFarmers.map(f => f.name));
 
-  // Farmers with any overdue nextCheck not already in alertFarmers
-  const overdueFarmers = db.farmers.filter(f =>
+  // Farmers with products running out within 7 days (not already in alert)
+  const soonFarmers = db.farmers.filter(f =>
     !alertNames.has(f.name) &&
+    db.inventory.some(i => i.farmer === f.name && (()=>{ const d = daysRemaining(i); return d !== null && d <= 7; })())
+  );
+  const soonNames = new Set(soonFarmers.map(f => f.name));
+
+  // Farmers with any overdue nextCheck not already listed
+  const overdueFarmers = db.farmers.filter(f =>
+    !alertNames.has(f.name) && !soonNames.has(f.name) &&
     db.inventory.some(i => i.farmer === f.name && i.nextCheck && i.nextCheck <= today)
   );
 
-  if (!alertFarmers.length && !overdueFarmers.length) {
+  if (!alertFarmers.length && !soonFarmers.length && !overdueFarmers.length) {
     body.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><div class="empty-txt">本日の確認事項はありません</div></div>';
     return;
   }
@@ -1724,21 +1731,29 @@ function renderToday() {
 
   if (alertFarmers.length) {
     html += '<div class="sec-hdr">要補充あり</div>';
-    html += alertFarmers.map(f => renderTodayCard(f, false)).join('');
+    html += alertFarmers.map(f => renderTodayCard(f, 'alert')).join('');
+  }
+  if (soonFarmers.length) {
+    html += '<div class="sec-hdr">補充まもなく（7日以内）</div>';
+    html += soonFarmers.map(f => renderTodayCard(f, 'soon')).join('');
   }
   if (overdueFarmers.length) {
     html += '<div class="sec-hdr">確認期限あり</div>';
-    html += overdueFarmers.slice(0, 8).map(f => renderTodayCard(f, true)).join('');
+    html += overdueFarmers.slice(0, 8).map(f => renderTodayCard(f, 'overdue')).join('');
   }
 
   body.innerHTML = html;
 }
 
-function renderTodayCard(f, overdueOnly) {
+function renderTodayCard(f, mode) {
   const today = todayISO();
-  const items = db.inventory.filter(i =>
-    i.farmer === f.name && (isAlert(i) || (overdueOnly && i.nextCheck && i.nextCheck <= today))
-  );
+  const items = db.inventory.filter(i => {
+    if (i.farmer !== f.name) return false;
+    if (mode === 'alert') return isAlert(i);
+    if (mode === 'soon') { const d = daysRemaining(i); return d !== null && d <= 7; }
+    if (mode === 'overdue') return i.nextCheck && i.nextCheck <= today;
+    return false;
+  });
   const lastVisit = db.visits
     .filter(v => v.farmer === f.name)
     .sort((a,b) => b.date.localeCompare(a.date))[0];
